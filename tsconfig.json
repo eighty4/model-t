@@ -1,0 +1,25 @@
+{
+  "include": ["lib/**/*"],
+  "exclude": ["lib/**/*.test.ts"],
+  "compilerOptions": {
+    "rootDir": "lib",
+    "outDir": "lib_js",
+    "declarationDir": "lib_types",
+    "target": "ESNext",
+    "module": "NodeNext",
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "composite": true,
+    "incremental": true,
+    "erasableSyntaxOnly": true,
+
+    /* Linting */
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "strict": true,
+    "verbatimModuleSyntax": true
+  }
+}

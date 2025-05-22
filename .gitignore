@@ -1,0 +1,6 @@
+lib_js
+lib_types
+node_modules
+tsconfig.tsbuildinfo
+
+.DS_Store
