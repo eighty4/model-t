@@ -2,13 +2,28 @@ import { readFile } from 'node:fs/promises'
 import { parse as parseYaml } from 'yaml'
 import type {
     GHWorkflow,
+    GHWorkflowCallInput,
+    GHWorkflowDispatchInput,
+    GHWorkflowEvent,
+    GHWorkflowInputBoolean,
+    GHWorkflowInputChoice,
+    GHWorkflowInputCommonProps,
+    GHWorkflowInputEnvironment,
+    GHWorkflowInputNumber,
+    GHWorkflowInputString,
     GHWorkflowJob,
     GHWorkflowJobRunsSteps,
     GHWorkflowJobUsesWorkflow,
+    GHWorkflowOnEvents,
+    GHWorkflowOnPullRequest,
+    GHWorkflowOnPush,
+    GHWorkflowOnWorkflowCall,
+    GHWorkflowOnWorkflowDispatch,
     GHWorkflowStep,
     GHWorkflowStepRunsShell,
     GHWorkflowStepUsesAction,
 } from './model.ts'
+import { GHWorkflowEvents } from './model.ts'
 
 const jobAndStepIdRegex = /^[_a-z]{1}[_\-a-z\d]+$/
 
@@ -19,20 +34,27 @@ const UNSUPPORTED_PROPS = Object.freeze({
     STEP_WITH_RUN: [],
 })
 
+class SchemaError {
+    schemaError: GHWorkflowSchemaError
+    constructor(schemaError: GHWorkflowSchemaError) {
+        this.schemaError = schemaError
+    }
+}
+
 export type GHWorkflowSchemaError = {
-    object: 'workflow' | 'input' | 'job' | 'step'
+    object: 'workflow' | 'event' | 'input' | 'job' | 'step'
     path: string
     message: string
 }
 
-export type GHWorkflowParseResult = {
+export type GHWorkflowReadResult = {
     workflow: GHWorkflow
     schemaErrors: Array<GHWorkflowSchemaError>
 }
 
 export async function readWorkflowFromFile(
     p: string,
-): Promise<GHWorkflowParseResult> {
+): Promise<GHWorkflowReadResult> {
     if (typeof p !== 'string' || !p.length) {
         throw new Error('YAML path must be a string')
     }
@@ -40,12 +62,7 @@ export async function readWorkflowFromFile(
     try {
         yaml = await readFile(p, 'utf-8')
     } catch (e: unknown) {
-        if (
-            e !== null &&
-            typeof e === 'object' &&
-            'code' in e &&
-            e.code === 'ENOENT'
-        ) {
+        if (errorIsFileNotFound(e)) {
             throw new Error(`YAML file ${p} not found`)
         } else {
             throw e
@@ -54,7 +71,7 @@ export async function readWorkflowFromFile(
     return readWorkflowFromString(yaml)
 }
 
-export function readWorkflowFromString(s: string): GHWorkflowParseResult {
+export function readWorkflowFromString(s: string): GHWorkflowReadResult {
     if (typeof s !== 'string' || !s.length) {
         throw new Error('YAML input must be a string')
     }
@@ -65,13 +82,483 @@ export function readWorkflowFromString(s: string): GHWorkflowParseResult {
         )
     }
     const schemaErrors: Array<GHWorkflowSchemaError> = []
+    const on = collectEventCfgs(wfYaml, schemaErrors)
     const jobs = collectJobs(wfYaml, schemaErrors)
     return {
         workflow: {
+            on,
             jobs,
         },
         schemaErrors,
     }
+}
+
+function collectEventCfgs(
+    wfYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+): GHWorkflowOnEvents {
+    const on: GHWorkflowOnEvents = {}
+    if ('on' in wfYaml) {
+        if (isArrayOfStrings(wfYaml.on)) {
+            for (const event of wfYaml.on) {
+                if (isWorkflowEvent(event)) {
+                    setEmptyOnWorkflowCfg(on, event)
+                } else {
+                    schemaErrors.push({
+                        message: `\`${event}\` is not a valid workflow trigger event name`,
+                        object: 'event',
+                        path: `on.${event}`,
+                    })
+                    continue
+                }
+            }
+        } else if (!isMap(wfYaml.on)) {
+            schemaErrors.push({
+                message:
+                    'Must be an array or map of workflow triggering events',
+                object: 'workflow',
+                path: 'on',
+            })
+        } else {
+            for (const [event, cfgYaml] of Object.entries(wfYaml.on)) {
+                try {
+                    if (!isWorkflowEvent(event)) {
+                        throw new SchemaError({
+                            message: `\`${event}\` is not a valid workflow trigger event name`,
+                            object: 'event',
+                            path: `on.${event}`,
+                        })
+                    } else if (cfgYaml === null) {
+                        setEmptyOnWorkflowCfg(on, event)
+                    } else if (!isMap(cfgYaml)) {
+                        throw new SchemaError({
+                            message: `Must be a map of event configuration`,
+                            object: 'event',
+                            path: `on.${event}`,
+                        })
+                    } else {
+                        switch (event) {
+                            case 'pull_request':
+                                on['pull_request'] =
+                                    parsePullRequestCfg(/*cfgYaml*/)
+                                break
+                            case 'push':
+                                on['push'] = parsePushCfg(/*cfgYaml*/)
+                                break
+                            case 'workflow_call':
+                                on['workflow_call'] = parseWorkflowCallCfg(
+                                    cfgYaml,
+                                    schemaErrors,
+                                )
+                                break
+                            case 'workflow_dispatch':
+                                on['workflow_dispatch'] =
+                                    parseWorkflowDispatchCfg(
+                                        cfgYaml,
+                                        schemaErrors,
+                                    )
+                                break
+                            default:
+                                throw new Error('unhandled wf event ' + event)
+                        }
+                    }
+                } catch (e: unknown) {
+                    if (e instanceof SchemaError) {
+                        schemaErrors.push(e.schemaError)
+                    } else {
+                        throw e
+                    }
+                }
+            }
+        }
+    }
+    return on
+}
+
+function setEmptyOnWorkflowCfg(on: GHWorkflowOnEvents, event: GHWorkflowEvent) {
+    switch (event) {
+        case 'pull_request':
+            on[event] = { __KIND: event }
+            break
+        case 'push':
+            on[event] = { __KIND: event }
+            break
+        case 'workflow_call':
+            on[event] = { __KIND: event }
+            break
+        case 'workflow_dispatch':
+            on[event] = { __KIND: event }
+            break
+        default:
+            throw new Error('unhandled wf event ' + event)
+    }
+}
+
+function parsePullRequestCfg(): GHWorkflowOnPullRequest {
+    return {
+        __KIND: 'pull_request',
+    }
+}
+
+function parsePushCfg(): GHWorkflowOnPush {
+    return {
+        __KIND: 'push',
+    }
+}
+
+function parseWorkflowCallCfg(
+    cfgYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+): GHWorkflowOnWorkflowCall {
+    const cfg: Partial<GHWorkflowOnWorkflowCall> = { __KIND: 'workflow_call' }
+    if (isValidInputsMap(cfgYaml, schemaErrors, 'workflow_call')) {
+        cfg.inputs = collectEventInputs<GHWorkflowCallInput>(
+            cfgYaml,
+            schemaErrors,
+            'workflow_call',
+        )
+    }
+    return cfg as GHWorkflowOnWorkflowCall
+}
+
+function parseWorkflowDispatchCfg(
+    cfgYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+): GHWorkflowOnWorkflowDispatch {
+    const cfg: Partial<GHWorkflowOnWorkflowDispatch> = {
+        __KIND: 'workflow_dispatch',
+    }
+    if (isValidInputsMap(cfgYaml, schemaErrors, 'workflow_dispatch')) {
+        cfg.inputs = collectEventInputs<GHWorkflowDispatchInput>(
+            cfgYaml,
+            schemaErrors,
+            'workflow_dispatch',
+        )
+    }
+    return cfg as GHWorkflowOnWorkflowDispatch
+}
+
+function isValidInputsMap(
+    cfgYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+    event: 'workflow_call' | 'workflow_dispatch',
+): cfgYaml is { inputs: Record<string, unknown> } {
+    if ('inputs' in cfgYaml) {
+        if (cfgYaml.inputs === null || !isMap(cfgYaml.inputs)) {
+            schemaErrors.push({
+                message: 'Must be a map of workflow inputs',
+                object: 'event',
+                path: `on.${event}.inputs`,
+            })
+        } else {
+            return true
+        }
+    }
+    return false
+}
+
+function collectEventInputs<T>(
+    cfgYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+    event: 'workflow_call' | 'workflow_dispatch',
+): Record<string, T> | undefined {
+    if ('inputs' in cfgYaml) {
+        if (cfgYaml.inputs === null || !isMap(cfgYaml.inputs)) {
+            schemaErrors.push({
+                message: 'Must be a map of workflow inputs',
+                object: 'event',
+                path: `on.${event}.inputs`,
+            })
+        } else {
+            const inputs: Record<string, GHWorkflowDispatchInput> = {}
+            for (const [inputId, inputYaml] of Object.entries(cfgYaml.inputs)) {
+                try {
+                    if (isValidInput(inputYaml, inputId, event)) {
+                        switch (inputYaml.type) {
+                            case 'boolean':
+                                inputs[inputId] = parseBooleanInput(
+                                    inputYaml,
+                                    schemaErrors,
+                                    event,
+                                    inputId,
+                                )
+                                break
+                            case 'number':
+                                inputs[inputId] = parseNumberInput(
+                                    inputYaml,
+                                    schemaErrors,
+                                    event,
+                                    inputId,
+                                )
+                                break
+                            case 'string':
+                                inputs[inputId] = parseStringInput(
+                                    inputYaml,
+                                    schemaErrors,
+                                    event,
+                                    inputId,
+                                )
+                                break
+                            case 'choice':
+                                inputs[inputId] = parseChoiceInput(
+                                    inputYaml,
+                                    schemaErrors,
+                                    inputId,
+                                )
+                                break
+                            case 'environment':
+                                inputs[inputId] = parseEnvironmentInput(
+                                    inputYaml,
+                                    schemaErrors,
+                                    inputId,
+                                )
+                                break
+                        }
+                    }
+                } catch (e: unknown) {
+                    if (e instanceof SchemaError) {
+                        schemaErrors.push(e.schemaError)
+                    } else {
+                        throw e
+                    }
+                }
+            }
+            return inputs as Record<string, T>
+        }
+    }
+}
+
+const INPUT_TYPES = {
+    workflow_call: ['boolean', 'number', 'string'],
+    workflow_dispatch: ['boolean', 'choice', 'environment', 'number', 'string'],
+}
+
+const INPUT_PROPS = ['default', 'description', 'required', 'type']
+
+function isValidInput(
+    inputYaml: unknown,
+    inputId: string,
+    event: 'workflow_call' | 'workflow_dispatch',
+): inputYaml is Record<string, unknown> {
+    if (!isMap(inputYaml)) {
+        throw new SchemaError({
+            message: 'Must be a map of input configuration',
+            object: 'input',
+            path: `on.${event}.inputs.${inputId}`,
+        })
+    } else if (!('type' in inputYaml)) {
+        throw new SchemaError({
+            message: `\`${inputYaml.type}\` must explicitly have an input type`,
+            object: 'input',
+            path: `on.${event}.inputs.${inputId}.type`,
+        })
+    } else if (!isString(inputYaml.type)) {
+        throw new SchemaError({
+            message: 'Must be a string',
+            object: 'input',
+            path: `on.${event}.inputs.${inputId}.type`,
+        })
+    } else if (!INPUT_TYPES[event].includes(inputYaml.type)) {
+        throw new SchemaError({
+            message: `\`${inputYaml.type}\` is not a valid ${event} input type`,
+            object: 'input',
+            path: `on.${event}.inputs.${inputId}.type`,
+        })
+    } else {
+        const invalidProps = Object.keys(inputYaml).filter(prop => {
+            return !(
+                INPUT_PROPS.includes(prop) ||
+                (inputYaml.type === 'choice' && prop === 'options')
+            )
+        })
+        if (invalidProps.length) {
+            throw new SchemaError({
+                message:
+                    invalidProps.length === 1
+                        ? `\`${inputId}\` cannot have field \`${invalidProps[0]}\``
+                        : `\`${inputId}\` cannot have fields: ${invalidProps
+                              .sort()
+                              .map(prop => `\`${prop}\``)
+                              .join(', ')}`,
+                object: 'input',
+                path: `on.${event}.inputs.${inputId}`,
+            })
+        }
+    }
+    return true
+}
+
+function parseInputProps(
+    input: GHWorkflowInputCommonProps<any>,
+    inputYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+    event: 'workflow_call' | 'workflow_dispatch',
+    inputId: string,
+) {
+    if ('description' in inputYaml) {
+        if (isStringLike(inputYaml.description)) {
+            input.description = convertStringLike(inputYaml.description)
+        } else {
+            schemaErrors.push({
+                message: 'Must be a string',
+                object: 'input',
+                path: `on.${event}.inputs.${inputId}.description`,
+            })
+        }
+    }
+    if ('required' in inputYaml) {
+        if (isBoolean(inputYaml.required)) {
+            input.required = inputYaml.required
+        } else {
+            schemaErrors.push({
+                message: 'Must be a boolean',
+                object: 'input',
+                path: `on.${event}.inputs.${inputId}.required`,
+            })
+        }
+    }
+}
+
+function parseBooleanInput(
+    inputYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+    event: 'workflow_call' | 'workflow_dispatch',
+    inputId: string,
+): GHWorkflowInputBoolean {
+    const input: GHWorkflowInputBoolean = { type: 'boolean' }
+    parseInputProps(input, inputYaml, schemaErrors, event, inputId)
+    if ('default' in inputYaml) {
+        if (isBoolean(inputYaml.default)) {
+            input.default = inputYaml.default
+        } else {
+            throw new SchemaError({
+                message: 'Must be a boolean',
+                object: 'input',
+                path: `on.${event}.inputs.${inputId}.default`,
+            })
+        }
+    }
+    return input
+}
+
+function parseNumberInput(
+    inputYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+    event: 'workflow_call' | 'workflow_dispatch',
+    inputId: string,
+): GHWorkflowInputNumber {
+    const input: GHWorkflowInputNumber = { type: 'number' }
+    parseInputProps(input, inputYaml, schemaErrors, event, inputId)
+    if ('default' in inputYaml) {
+        if (isNumber(inputYaml.default)) {
+            input.default = inputYaml.default
+        } else {
+            throw new SchemaError({
+                message: 'Must be a number',
+                object: 'input',
+                path: `on.${event}.inputs.${inputId}.default`,
+            })
+        }
+    }
+    return input
+}
+
+function parseStringInput(
+    inputYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+    event: 'workflow_call' | 'workflow_dispatch',
+    inputId: string,
+): GHWorkflowInputString {
+    const input: GHWorkflowInputString = { type: 'string' }
+    parseInputProps(input, inputYaml, schemaErrors, event, inputId)
+    if ('default' in inputYaml) {
+        if (isStringLike(inputYaml.default)) {
+            input.default = convertStringLike(inputYaml.default)
+        } else {
+            throw new SchemaError({
+                message: 'Must be a string',
+                object: 'input',
+                path: `on.${event}.inputs.${inputId}.default`,
+            })
+        }
+    }
+    return input
+}
+
+function parseChoiceInput(
+    inputYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+    inputId: string,
+): GHWorkflowInputChoice {
+    if (!('options' in inputYaml)) {
+        throw new SchemaError({
+            message: `Choice input must have \`options\``,
+            object: 'input',
+            path: `on.workflow_dispatch.inputs.${inputId}`,
+        })
+    }
+    if (!isArrayOfStringLikes(inputYaml.options)) {
+        throw new SchemaError({
+            message: `Must be an array of strings`,
+            object: 'input',
+            path: `on.workflow_dispatch.inputs.${inputId}.options`,
+        })
+    }
+    const options = inputYaml.options.map(convertStringLike)
+    const input: GHWorkflowInputChoice = { type: 'choice', options }
+    parseInputProps(
+        input,
+        inputYaml,
+        schemaErrors,
+        'workflow_dispatch',
+        inputId,
+    )
+    if ('default' in inputYaml) {
+        if (isStringLike(inputYaml.default)) {
+            input.default = convertStringLike(inputYaml.default)
+            if (!input.options.includes(input.default)) {
+                throw new SchemaError({
+                    message: `\`${inputYaml.default}\` is not an input option`,
+                    object: 'input',
+                    path: `on.workflow_dispatch.inputs.${inputId}.default`,
+                })
+            }
+        } else {
+            throw new SchemaError({
+                message: 'Must be a string',
+                object: 'input',
+                path: `on.workflow_dispatch.inputs.${inputId}.default`,
+            })
+        }
+    }
+    return input
+}
+
+function parseEnvironmentInput(
+    inputYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+    inputId: string,
+): GHWorkflowInputEnvironment {
+    const input: GHWorkflowInputEnvironment = { type: 'environment' }
+    parseInputProps(
+        input,
+        inputYaml,
+        schemaErrors,
+        'workflow_dispatch',
+        inputId,
+    )
+    if ('default' in inputYaml) {
+        if (isStringLike(inputYaml.default)) {
+            input.default = convertStringLike(inputYaml.default)
+        } else {
+            throw new SchemaError({
+                message: 'Must be a string',
+                object: 'input',
+                path: `on.workflow_dispatch.inputs.${inputId}.default`,
+            })
+        }
+    }
+    return input
 }
 
 function collectJobs(
@@ -110,200 +597,195 @@ function collectJobs(
     const jobsYaml = wfYaml.jobs as Record<string, unknown>
     const jobs: Record<string, GHWorkflowJob> = {}
     for (const [jobId, jobYaml] of Object.entries(jobsYaml)) {
-        if (!jobAndStepIdRegex.test(jobId)) {
-            errors.push({
-                message: `Job id ${jobId} must start with a letter or _ and only contain alphanumeric _ and -`,
-                object: 'job',
-                path: `jobs.${jobId}`,
-            })
-            continue
-        }
-        if (!isMap(jobYaml)) {
-            errors.push({
-                object: 'job',
-                message: `Cannot have a ${typeof jobYaml} value for a job`,
-                path: `jobs.${jobId}`,
-            })
-            continue
-        }
-        const job: Partial<GHWorkflowJob> = {}
-        if ('steps' in jobYaml && 'uses' in jobYaml) {
-            errors.push({
-                message: 'Cannot define both `steps` and `uses` for a job',
-                object: 'job',
-                path: `jobs.${jobId}`,
-            })
-            continue
-        } else if ('steps' in jobYaml) {
-            const stepsJob = job as Partial<GHWorkflowJobRunsSteps>
-            stepsJob.__KIND = 'steps'
-            if (isArrayOfMaps(jobYaml.steps)) {
-                const steps = collectSteps(jobId, jobYaml.steps, errors)
-                if (steps) {
-                    stepsJob.steps = steps
-                } else {
-                    continue
-                }
-            } else {
-                throw new Error('todo invalid job.steps')
+        try {
+            if (!jobAndStepIdRegex.test(jobId)) {
+                throw new SchemaError({
+                    message: `Job id ${jobId} must start with a letter or _ and only contain alphanumeric _ and -`,
+                    object: 'job',
+                    path: `jobs.${jobId}`,
+                })
             }
-            if ('env' in jobYaml) {
-                if (isMapOfStringLikes(jobYaml.env)) {
-                    stepsJob.env = convertMapOfStringLikes(jobYaml.env)
+            if (!isMap(jobYaml)) {
+                throw new SchemaError({
+                    object: 'job',
+                    message: `Cannot have a ${typeof jobYaml} value for a job`,
+                    path: `jobs.${jobId}`,
+                })
+            }
+            const job: Partial<GHWorkflowJob> = {}
+            if ('steps' in jobYaml && 'uses' in jobYaml) {
+                throw new SchemaError({
+                    message: 'Cannot define both `steps` and `uses` for a job',
+                    object: 'job',
+                    path: `jobs.${jobId}`,
+                })
+            } else if ('steps' in jobYaml) {
+                const stepsJob = job as Partial<GHWorkflowJobRunsSteps>
+                stepsJob.__KIND = 'steps'
+                if (isArrayOfMaps(jobYaml.steps)) {
+                    const steps = collectSteps(jobId, jobYaml.steps)
+                    if (steps) {
+                        stepsJob.steps = steps
+                    }
                 } else {
-                    errors.push({
-                        message: '`env` must be a map of strings',
+                    throw new SchemaError({
+                        message: 'Must be an array of step configurations',
                         object: 'job',
-                        path: `jobs.${jobId}.env`,
+                        path: `jobs.${jobId}.steps`,
                     })
-                    continue
                 }
-            }
-            if ('runs-on' in jobYaml) {
-                const runsOn = jobYaml['runs-on']
-                if (isString(runsOn)) {
-                    stepsJob.runsOn = runsOn
-                } else if (isArrayOfStrings(runsOn) && runsOn.length) {
-                    stepsJob.runsOn = runsOn
-                } else if (isMap(runsOn)) {
-                    if (
-                        Object.keys(runsOn).length === 2 &&
-                        'group' in runsOn &&
-                        'labels' in runsOn
-                    ) {
-                        if (!isString(runsOn.group)) {
-                            errors.push({
-                                message: 'Must be a string',
-                                object: 'job',
-                                path: `jobs.${jobId}.runs-on.group`,
-                            })
-                            continue
-                        } else {
-                            if (isString(runsOn.labels)) {
-                                stepsJob.runsOn = {
-                                    group: runsOn.group,
-                                    labels: [runsOn.labels],
-                                }
-                            } else if (isArrayOfStrings(runsOn.labels)) {
-                                stepsJob.runsOn = {
-                                    group: runsOn.group,
-                                    labels: runsOn.labels,
-                                }
-                            } else {
-                                errors.push({
-                                    message:
-                                        'Must be a string or array of strings',
-                                    object: 'job',
-                                    path: `jobs.${jobId}.runs-on.labels`,
-                                })
-                                continue
-                            }
-                        }
+                if ('env' in jobYaml) {
+                    if (isMapOfStringLikes(jobYaml.env)) {
+                        stepsJob.env = convertMapOfStringLikes(jobYaml.env)
                     } else {
-                        errors.push({
-                            message:
-                                '`runs-on` must only have `group` and `labels` for querying runners',
+                        throw new SchemaError({
+                            message: '`env` must be a map of strings',
                             object: 'job',
-                            path: `jobs.${jobId}.runs-on`,
+                            path: `jobs.${jobId}.env`,
                         })
-                        continue
                     }
                 }
-            }
-            if (!stepsJob.runsOn) {
-                errors.push({
-                    message:
-                        'Must be a runner image name, array of runner labels or map defining `group` and `labels`',
-                    object: 'job',
-                    path: `jobs.${jobId}.runs-on`,
-                })
-                continue
-            }
-        } else if ('uses' in jobYaml) {
-            const usesJob = job as Partial<GHWorkflowJobUsesWorkflow>
-            usesJob.__KIND = 'uses'
-            if (isString(jobYaml.uses)) {
-                usesJob.uses = jobYaml.uses
-            } else {
-                errors.push({
-                    object: 'job',
-                    message: '`uses` must be a string',
-                    path: `jobs.${jobId}.uses`,
-                })
-                continue
-            }
-            if ('with' in jobYaml) {
-                if (isMapOfStrings(jobYaml.with)) {
-                    usesJob.with = jobYaml.with
+                if ('runs-on' in jobYaml) {
+                    const runsOn = jobYaml['runs-on']
+                    if (isString(runsOn)) {
+                        stepsJob.runsOn = runsOn
+                    } else if (isArrayOfStrings(runsOn) && runsOn.length) {
+                        stepsJob.runsOn = runsOn
+                    } else if (isMap(runsOn)) {
+                        if (
+                            Object.keys(runsOn).length === 2 &&
+                            'group' in runsOn &&
+                            'labels' in runsOn
+                        ) {
+                            if (!isString(runsOn.group)) {
+                                throw new SchemaError({
+                                    message: 'Must be a string',
+                                    object: 'job',
+                                    path: `jobs.${jobId}.runs-on.group`,
+                                })
+                            } else {
+                                if (isString(runsOn.labels)) {
+                                    stepsJob.runsOn = {
+                                        group: runsOn.group,
+                                        labels: [runsOn.labels],
+                                    }
+                                } else if (isArrayOfStrings(runsOn.labels)) {
+                                    stepsJob.runsOn = {
+                                        group: runsOn.group,
+                                        labels: runsOn.labels,
+                                    }
+                                } else {
+                                    throw new SchemaError({
+                                        message:
+                                            'Must be a string or array of strings',
+                                        object: 'job',
+                                        path: `jobs.${jobId}.runs-on.labels`,
+                                    })
+                                }
+                            }
+                        } else {
+                            throw new SchemaError({
+                                message:
+                                    '`runs-on` must only have `group` and `labels` for querying runners',
+                                object: 'job',
+                                path: `jobs.${jobId}.runs-on`,
+                            })
+                        }
+                    }
+                }
+                if (!stepsJob.runsOn) {
+                    throw new SchemaError({
+                        message:
+                            'Must be a runner image name, array of runner labels or map defining `group` and `labels`',
+                        object: 'job',
+                        path: `jobs.${jobId}.runs-on`,
+                    })
+                }
+            } else if ('uses' in jobYaml) {
+                const usesJob = job as Partial<GHWorkflowJobUsesWorkflow>
+                usesJob.__KIND = 'uses'
+                if (isString(jobYaml.uses)) {
+                    usesJob.uses = jobYaml.uses
                 } else {
                     errors.push({
                         object: 'job',
-                        message: '`with` must be a map of strings',
-                        path: `jobs.${jobId}.with`,
+                        message: '`uses` must be a string',
+                        path: `jobs.${jobId}.uses`,
                     })
                     continue
                 }
-            }
-            const unsupported = UNSUPPORTED_PROPS.JOB_WITH_USES.filter(
-                unsupported => unsupported in jobYaml,
-            )
-            if (unsupported.length) {
-                unsupported.forEach(u =>
-                    errors.push({
-                        message: `\`${u}\` cannot be used with \`uses\``,
-                        object: 'job',
-                        path: `jobs.${jobId}.${u}`,
-                    }),
+                if ('with' in jobYaml) {
+                    if (isMapOfStringLikes(jobYaml.with)) {
+                        usesJob.with = jobYaml.with
+                    } else {
+                        throw new SchemaError({
+                            object: 'job',
+                            message:
+                                '`with` must be a map of booleans, numbers and strings',
+                            path: `jobs.${jobId}.with`,
+                        })
+                    }
+                }
+                const unsupported = UNSUPPORTED_PROPS.JOB_WITH_USES.filter(
+                    unsupported => unsupported in jobYaml,
                 )
-                continue
-            }
-        } else {
-            errors.push({
-                message: 'Must define `steps` or `uses` for a job',
-                object: 'job',
-                path: `jobs.${jobId}`,
-            })
-            continue
-        }
-        if ('if' in jobYaml) {
-            if (isStringLike(jobYaml.if)) {
-                job.if = convertStringLike(jobYaml.if)
+                if (unsupported.length) {
+                    throw new SchemaError({
+                        message: `${unsupported.map(s => `\`${s}\``).join(', ')} cannot be used with \`uses\``,
+                        object: 'job',
+                        path: `jobs.${jobId}`,
+                    })
+                }
             } else {
-                errors.push({
-                    message: '`if` must be a string',
+                throw new SchemaError({
+                    message: 'Must define `steps` or `uses` for a job',
                     object: 'job',
-                    path: `jobs.${jobId}.if`,
+                    path: `jobs.${jobId}`,
                 })
-                continue
             }
-        }
-        if ('name' in jobYaml) {
-            if (isStringLike(jobYaml.name)) {
-                job.name = convertStringLike(jobYaml.name)
+            if ('if' in jobYaml) {
+                if (isStringLike(jobYaml.if)) {
+                    job.if = convertStringLike(jobYaml.if)
+                } else {
+                    throw new SchemaError({
+                        message: '`if` must be a string',
+                        object: 'job',
+                        path: `jobs.${jobId}.if`,
+                    })
+                }
+            }
+            if ('name' in jobYaml) {
+                if (isStringLike(jobYaml.name)) {
+                    job.name = convertStringLike(jobYaml.name)
+                } else {
+                    throw new SchemaError({
+                        message: '`name` must be a string',
+                        object: 'job',
+                        path: `jobs.${jobId}.name`,
+                    })
+                }
+            }
+            if ('needs' in jobYaml) {
+                if (isStringLike(jobYaml.needs)) {
+                    job.needs = [convertStringLike(jobYaml.needs)]
+                } else if (isArrayOfStringLikes(jobYaml.needs)) {
+                    job.needs = jobYaml.needs.map(convertStringLike)
+                } else {
+                    throw new SchemaError({
+                        message: '`needs` must be a string or array of strings',
+                        object: 'job',
+                        path: `jobs.${jobId}.needs`,
+                    })
+                }
+            }
+            jobs[jobId] = job as GHWorkflowJob
+        } catch (e: unknown) {
+            if (e instanceof SchemaError) {
+                errors.push(e.schemaError)
             } else {
-                errors.push({
-                    message: '`name` must be a string',
-                    object: 'job',
-                    path: `jobs.${jobId}.name`,
-                })
-                continue
+                throw e
             }
         }
-        if ('needs' in jobYaml) {
-            if (isStringLike(jobYaml.needs)) {
-                job.needs = [convertStringLike(jobYaml.needs)]
-            } else if (isArrayOfStringLikes(jobYaml.needs)) {
-                job.needs = jobYaml.needs.map(convertStringLike)
-            } else {
-                errors.push({
-                    message: '`needs` must be a string or array of strings',
-                    object: 'job',
-                    path: `jobs.${jobId}.needs`,
-                })
-                continue
-            }
-        }
-        jobs[jobId] = job as GHWorkflowJob
     }
     return jobs
 }
@@ -311,7 +793,6 @@ function collectJobs(
 function collectSteps(
     jobId: string,
     stepsYaml: Array<Record<string, unknown>>,
-    errors: Array<GHWorkflowSchemaError>,
 ): Array<GHWorkflowStep> | undefined {
     const steps: Array<GHWorkflowStep> = []
     for (const [i, stepYaml] of stepsYaml.entries()) {
@@ -320,36 +801,33 @@ function collectSteps(
             if (isString(stepYaml.id) && jobAndStepIdRegex.test(stepYaml.id)) {
                 step.id = stepYaml.id
             } else {
-                errors.push({
+                throw new SchemaError({
                     message: `Step id ${stepYaml.id} must be a string starting with a letter or _ and only contain alphanumeric _ and -`,
                     object: 'step',
                     path: `jobs.${jobId}.steps[${i}].id`,
                 })
-                return
             }
         }
         if ('if' in stepYaml) {
             if (isStringLike(stepYaml.if)) {
                 step.if = convertStringLike(stepYaml.if)
             } else {
-                errors.push({
+                throw new SchemaError({
                     message: '`if` must be a string',
                     object: 'step',
                     path: `jobs.${jobId}.steps[${i}].if`,
                 })
-                return
             }
         }
         if ('name' in stepYaml) {
             if (isStringLike(stepYaml.name)) {
                 step.name = convertStringLike(stepYaml.name)
             } else {
-                errors.push({
+                throw new SchemaError({
                     message: '`name` must be a string',
                     object: 'step',
                     path: `jobs.${jobId}.steps[${i}].name`,
                 })
-                return
             }
         }
         if ('run' in stepYaml && 'uses' in stepYaml) {
@@ -360,23 +838,21 @@ function collectSteps(
             if (isString(stepYaml.run)) {
                 runStep.run = stepYaml.run
             } else {
-                errors.push({
+                throw new SchemaError({
                     message: '`run` must be a string',
                     object: 'step',
                     path: `jobs.${jobId}.steps[${i}].run`,
                 })
-                return
             }
             if ('env' in stepYaml) {
                 if (isMapOfStringLikes(stepYaml.env)) {
                     runStep.env = convertMapOfStringLikes(stepYaml.env)
                 } else {
-                    errors.push({
+                    throw new SchemaError({
                         message: '`env` must be a map of strings',
                         object: 'step',
                         path: `jobs.${jobId}.steps[${i}].env`,
                     })
-                    return
                 }
             }
         } else if ('uses' in stepYaml) {
@@ -385,25 +861,33 @@ function collectSteps(
             if (isString(stepYaml.uses)) {
                 usesStep.uses = stepYaml.uses
             } else {
-                errors.push({
+                throw new SchemaError({
                     message: '`uses` must be a string',
                     object: 'step',
                     path: `jobs.${jobId}.steps[${i}].uses`,
                 })
-                return
+            }
+            if ('with' in stepYaml) {
+                if (isMapOfStringLikes(stepYaml.with)) {
+                    usesStep.with = stepYaml.with
+                } else {
+                    throw new SchemaError({
+                        object: 'step',
+                        message:
+                            '`with` must be a map of booleans, numbers and strings',
+                        path: `jobs.${jobId}.steps[${i}].with`,
+                    })
+                }
             }
             const unsupported = UNSUPPORTED_PROPS.STEP_WITH_USES.filter(
                 unsupported => unsupported in stepYaml,
             )
             if (unsupported.length) {
-                unsupported.forEach(u =>
-                    errors.push({
-                        message: `\`${u}\` cannot be used with \`uses\``,
-                        object: 'step',
-                        path: `jobs.${jobId}.steps[${i}].${u}`,
-                    }),
-                )
-                return
+                throw new SchemaError({
+                    message: `${unsupported.map(s => `\`${s}\``).join(', ')} cannot be used with \`uses\``,
+                    object: 'step',
+                    path: `jobs.${jobId}.steps[${i}]`,
+                })
             }
         } else {
             throw new Error('step must have run or uses')
@@ -425,6 +909,15 @@ function convertMapOfStringLikes(
 
 function convertStringLike(c: boolean | number | string): string {
     return isString(c) ? c : `${c}`
+}
+
+function errorIsFileNotFound(e: unknown): boolean {
+    return (
+        e !== null &&
+        typeof e === 'object' &&
+        'code' in e &&
+        e.code === 'ENOENT'
+    )
 }
 
 function isArrayOfMaps(v: unknown): v is Array<Record<string, unknown>> {
@@ -455,10 +948,6 @@ function isMapOfStringLikes(
     return isMap(v) && Object.values(v).every(isStringLike)
 }
 
-function isMapOfStrings(v: unknown): v is Record<string, string> {
-    return isMap(v) && Object.values(v).every(isString)
-}
-
 function isNumber(v: unknown): v is number {
     return typeof v === 'number'
 }
@@ -469,4 +958,8 @@ function isString(v: unknown): v is string {
 
 function isStringLike(v: unknown): v is string | number | boolean {
     return isString(v) || isBoolean(v) || isNumber(v)
+}
+
+function isWorkflowEvent(v: string): v is GHWorkflowEvent {
+    return GHWorkflowEvents.includes(v as GHWorkflowEvent)
 }

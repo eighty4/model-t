@@ -3,23 +3,98 @@
 // export type GHWorkflowImage = (typeof GHWorkflowImageValues)[number]
 
 export type GHWorkflow = {
+    __PATH?: string
+    on: GHWorkflowOnEvents
     jobs: Record<string, GHWorkflowJob>
     // name?: string
     // runName?: string
-    // on
     // permissions: Record<string, string>
     // env: Record<string, string>
     // defaults
     // concurrency
 }
 
-//export type GHWorkflowInput = {
-// description?: string
-// default?: string
-// options?: Array<string>
-// required?: boolean
-// type?: 'boolean' | 'string' | 'choice' | 'environment' | 'number'
-//}
+export type GHWorkflowOnEvents = Partial<{
+    pull_request: GHWorkflowOnPullRequest
+    push: GHWorkflowOnPush
+    workflow_call: GHWorkflowOnWorkflowCall
+    workflow_dispatch: GHWorkflowOnWorkflowDispatch
+}>
+
+export const GHWorkflowEvents = [
+    'pull_request',
+    'push',
+    'workflow_call',
+    'workflow_dispatch',
+] as const
+
+export type GHWorkflowEvent = (typeof GHWorkflowEvents)[number]
+
+export type GHWorkflowOnEvent<T extends GHWorkflowEvent> = {
+    __KIND: T
+}
+
+export interface GHWorkflowOnPullRequest
+    extends GHWorkflowOnEvent<'pull_request'> {
+    branches?: Array<string>
+    branchesIgnore?: Array<string>
+}
+
+export interface GHWorkflowOnPush extends GHWorkflowOnEvent<'push'> {
+    branches?: Array<string>
+    branchesIgnore?: Array<string>
+    tags?: Array<string>
+    tagsIgnore?: Array<string>
+}
+
+export interface GHWorkflowOnWorkflowCall
+    extends GHWorkflowOnEvent<'workflow_call'> {
+    inputs?: Record<string, GHWorkflowCallInput>
+}
+
+export type GHWorkflowCallInput =
+    | GHWorkflowInputBoolean
+    | GHWorkflowInputNumber
+    | GHWorkflowInputString
+
+export interface GHWorkflowOnWorkflowDispatch
+    extends GHWorkflowOnEvent<'workflow_dispatch'> {
+    inputs?: Record<string, GHWorkflowDispatchInput>
+}
+
+export type GHWorkflowDispatchInput =
+    | GHWorkflowInputBoolean
+    | GHWorkflowInputChoice
+    | GHWorkflowInputEnvironment
+    | GHWorkflowInputNumber
+    | GHWorkflowInputString
+
+export type GHWorkflowInputBoolean = GHWorkflowInputCommonProps<boolean> & {
+    type: 'boolean'
+}
+
+export type GHWorkflowInputNumber = GHWorkflowInputCommonProps<number> & {
+    type: 'number'
+}
+
+export type GHWorkflowInputString = GHWorkflowInputCommonProps<string> & {
+    type: 'string'
+}
+
+export type GHWorkflowInputChoice = GHWorkflowInputCommonProps<string> & {
+    type: 'choice'
+    options: Array<string>
+}
+
+export type GHWorkflowInputEnvironment = GHWorkflowInputCommonProps<string> & {
+    type: 'environment'
+}
+
+export type GHWorkflowInputCommonProps<T> = {
+    default?: T
+    description?: string
+    required?: boolean
+}
 
 export type GHWorkflowJob = GHWorkflowJobRunsSteps | GHWorkflowJobUsesWorkflow
 
@@ -50,7 +125,7 @@ export type GHWorkflowJobRunsSteps = GHWorkflowJobCommonProps & {
 export type GHWorkflowJobUsesWorkflow = GHWorkflowJobCommonProps & {
     __KIND: 'uses'
     uses: string
-    with?: Record<string, string>
+    with?: Record<string, boolean | number | string>
 } & GHWorkflowJobCommonProps
 
 export type GHWorkflowStep = GHWorkflowStepRunsShell | GHWorkflowStepUsesAction
@@ -77,5 +152,5 @@ export type GHWorkflowStepRunsShell = GHWorkflowStepCommonProps & {
 export type GHWorkflowStepUsesAction = GHWorkflowStepCommonProps & {
     __KIND: 'uses'
     uses: string
-    with?: Record<string, string>
+    with?: Record<string, boolean | number | string>
 }

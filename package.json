@@ -11,6 +11,9 @@
   "bin": {
     "model-t": "./lib_js/bin.js"
   },
+  "exports": {
+    ".": "./lib_js/lib.js"
+  },
   "scripts": {
     "build": "tsc",
     "fmt": "prettier --write .",
