@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { readdir, stat } from 'node:fs/promises'
 import { basename, dirname, extname, join, resolve } from 'node:path'
 import { ProjectFileFetcher } from './fileFetcher.ts'
@@ -17,7 +19,7 @@ const args: Array<string> = (() => {
     return args
 })()
 
-if (args.some(arg => arg === '-h' || '--help') || args.length !== 1) {
+if (args.some(arg => arg === '-h' || arg === '--help') || args.length !== 1) {
     console.log(bold('model-t'), 'PROJECT_DIR|WORKFLOW_YAML')
     process.exit(1)
 } else {
