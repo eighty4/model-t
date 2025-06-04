@@ -17,8 +17,8 @@ const args: Array<string> = (() => {
     return args
 })()
 
-if (args.length !== 1) {
-    console.log('model-t PROJECT_DIR|WORKFLOW_YAML')
+if (args.some(arg => arg === '-h' || '--help') || args.length !== 1) {
+    console.log(bold('model-t'), 'PROJECT_DIR|WORKFLOW_YAML')
     process.exit(1)
 } else {
     await handlePathInput(args[0])
@@ -131,6 +131,10 @@ function workflowErrorExit(e: GHWorkflowError) {
             console.error(`        ${greyText(schemaError.path)}`)
         }
     }
+}
+
+function bold(s: string): string {
+    return `\u001b[1m${s}\u001b[0m`
 }
 
 function greenCheckMark(): string {

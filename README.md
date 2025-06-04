@@ -6,9 +6,17 @@ JS API for validating GitHub Workflows.
 echo '"Make the best quality goods possible"\n- Henry Ford'
 ```
 
-## Validate schema of a GitHub Workflow
+## Validating GitHub Workflows
 
 ```
-pnpm i
-node src/bin.ts WORKFLOW_YAML
+# install with npm
+npm i -g @eighty4/model-t
+
+model-t -h
+
+# validate a workflow
+model-t .github/workflows/publish.yml
+
+# validate all workflows in .github/workflows
+model-t .
 ```
