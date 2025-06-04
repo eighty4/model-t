@@ -27,7 +27,7 @@ jobs:
           node-version: 23
       - name: changelog entries
         if: ${{ inputs.semver-bump != 'prerelease' }}
-        run: npx @eighty4/changelog check
+        run: npx --yes @eighty4/changelog check
 
   verify:
     uses: ./.github/workflows/ci_verify.yml
@@ -51,7 +51,7 @@ jobs:
       - if: inputs.semver-bump != 'prerelease'
         env:
           VERSION: ${{ steps.bump.outputs.version }}
-        run: npx @eighty4/changelog rollover "v$VERSION"
+        run: npx --yes @eighty4/changelog rollover "v$VERSION"
       - id: push
         env:
           GIT_TAG: ${{ steps.bump.outputs.tag }}
@@ -107,7 +107,7 @@ jobs:
         run: |
           echo "## Release notes" >> release_notes.md
           echo >> release_notes.md
-          npx @eighty4/changelog get "$CHANGELOG_TAG" >> release_notes.md
+          npx --yes @eighty4/changelog get "$CHANGELOG_TAG" >> release_notes.md
           echo >> release_notes.md
           echo "#### Published to npm" >> release_notes.md
           echo >> release_notes.md
