@@ -25,9 +25,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 23
+      - run: npm i -g @eighty4/changelog
       - name: changelog entries
         if: ${{ inputs.semver-bump != 'prerelease' }}
-        run: npx --yes @eighty4/changelog check
+        run: changelog check
 
   verify:
     uses: ./.github/workflows/ci_verify.yml
