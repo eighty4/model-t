@@ -110,7 +110,7 @@ async function validateProjectWorkflow(projectRoot: string, workflow: string) {
         if (e instanceof GHWorkflowError) {
             workflowErrorExit(e)
         } else if (e instanceof Error) {
-            console.error(redBooBoo(), workflow, 'error:', e.message)
+            console.log(redBooBoo(), workflow, 'error:', e.message)
         }
     }
 }
@@ -126,11 +126,11 @@ function workflowErrorExit(e: GHWorkflowError) {
     if (e.referencedBy !== null) {
         output.push(`\`${e.referencedBy}\``)
     }
-    console.error(...output)
+    console.log(...output)
     if (e.schemaErrors?.length) {
         for (const schemaError of e.schemaErrors) {
-            console.error(`    ${redDash()} ${schemaError.message}`)
-            console.error(`        ${greyText(schemaError.path)}`)
+            console.log(`    ${redDash()} ${schemaError.message}`)
+            console.log(`        ${greyText(schemaError.path)}`)
         }
     }
 }
