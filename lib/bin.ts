@@ -109,8 +109,8 @@ async function validateProjectWorkflow(projectRoot: string, workflow: string) {
     } catch (e: unknown) {
         if (e instanceof GHWorkflowError) {
             workflowErrorExit(e)
-        } else {
-            console.error(redBooBoo(), e)
+        } else if (e instanceof Error) {
+            console.error(redBooBoo(), workflow, 'error:', e.message)
         }
     }
 }
