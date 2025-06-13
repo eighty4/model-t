@@ -130,8 +130,24 @@ const VALID_DATA_TYPES: Record<string, Array<string>> = {
     environment: ['string'],
 }
 
-// todo OOP?
+// todo eval expressions in `data` when string to determine if resolves to
+//  boolean or number
 function isValidInputDataType(type: string, data: unknown) {
     const dataType = typeof data
-    return VALID_DATA_TYPES[type].some(validType => validType === dataType)
+    const isValidDataType = VALID_DATA_TYPES[type].some(
+        validType => validType === dataType,
+    )
+    if (isValidDataType || dataType !== 'string') {
+        return isValidDataType
+    }
+    // not flagging invalid if string is an expression bc the result is unknown
+    return reduceExpressionsFromString(data as string) === ''
+}
+
+function reduceExpressionsFromString(data: string) {
+    let s = data
+    while (/\${{.*}}/.test(s)) {
+        s = s.replace(/\${{.*}}/, '')
+    }
+    return s.trim()
 }
