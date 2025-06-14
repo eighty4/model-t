@@ -119,7 +119,7 @@ function workflowErrorExit(e: GHWorkflowError) {
     }
     output.push(`\`${e.workflow}\``)
     if (e.referencedBy !== null) {
-        output.push(`\`${e.referencedBy}\``)
+        output.push(`referenced by \`${e.referencedBy}\``)
     }
     console.log(...output)
     if (e.schemaErrors?.length) {

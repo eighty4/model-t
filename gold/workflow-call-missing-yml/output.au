@@ -1,1 +1,1 @@
-[31m✗[0m could not find workflow `./.github/workflows/where_dat.yml` `.github/workflows/uses_mia.yml`
+[31m✗[0m could not find workflow `./.github/workflows/where_dat.yml` referenced by `.github/workflows/uses_mia.yml`
