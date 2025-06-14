@@ -1,0 +1,4 @@
+inputs:
+  must_set:
+    description: mandatory
+    required: true
