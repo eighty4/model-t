@@ -4,8 +4,8 @@
 
 ### Added
 
-- Fetches action.yml for actions used by workflows and validates values are
-  set for required action inputs
+- GitHub actions used by workflows are fetched to validate workflows provide
+  values for required action inputs
 
 ## [v0.0.2] - 2025-06-04
 
