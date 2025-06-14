@@ -1,4 +1,4 @@
-name: Verify
+name: Verify CI
 run-name: Verify ${{ github.ref }}
 on:
   pull_request:

@@ -1,4 +1,4 @@
-name: GitHub Release
+name: Create GitHub Release
 run-name: Create ${{ inputs.tag }} GitHub release
 
 on:

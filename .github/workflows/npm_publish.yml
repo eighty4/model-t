@@ -1,4 +1,4 @@
-name: Publish
+name: Publish to npm
 run-name: Publish ${{ inputs.semver-bump }} bump
 
 on:
