@@ -108,10 +108,9 @@ export abstract class RepoObjectFetcher {
     async fetchActionMetadata(
         owner: string,
         repo: string,
-        ref?: string,
+        ref: string,
         subdir?: string,
     ): Promise<string> {
-        ref = ref || 'HEAD'
         let p = 'action.yml'
         if (typeof subdir !== 'undefined') {
             p = `${subdir}${subdir.endsWith('/') ? '' : '/'}${p}`

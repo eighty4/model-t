@@ -903,10 +903,6 @@ function parseUsesActionValue(
         __KIND: 'repository',
     }
     const splitOnRef = v.split('@', 2)
-    if (splitOnRef.length > 1) {
-        // todo regex validate ref
-        action.ref = splitOnRef[1]
-    }
     const splitPaths = splitOnRef[0].split('/')
     if (splitPaths.length < 2) {
         throw new SchemaError({
@@ -915,8 +911,19 @@ function parseUsesActionValue(
             path: `jobs.${jobId}.steps[${stepIndex}].uses`,
         })
     }
+    if (splitOnRef.length === 1) {
+        throw new SchemaError({
+            message: `Must specify GitHub Action ref in format \`${splitOnRef[0]}@{ref}\``,
+            object: 'step',
+            path: `jobs.${jobId}.steps[${stepIndex}].uses`,
+        })
+    } else {
+        // todo regex validate ref
+        action.ref = splitOnRef[1]
+    }
     action.owner = splitPaths[0]
     action.repo = splitPaths[1]
+    action.specifier = v
     if (splitPaths.length > 2) {
         action.subdirectory = splitPaths.splice(2).join('/')
     }

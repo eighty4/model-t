@@ -109,7 +109,7 @@ export class GHWorkflowAnalyzer {
                                 ) {
                                     if (!step.with || !(inputId in step.with)) {
                                         throw new Error(
-                                            `input \`${inputId}\` is required to call action \`${step.uses.owner}/${step.uses.repo}${step.uses.subdirectory ? '/' + step.uses.subdirectory : ''}${step.uses.ref ? '@' + step.uses.ref : ''}\` from \`${step.id || step.name || `step[${stepIndex}]`}\` in job \`${jobId}\``,
+                                            `input \`${inputId}\` is required to call action \`${step.uses.specifier}\` from \`${step.id || step.name || `step[${stepIndex}]`}\` in job \`${jobId}\``,
                                         )
                                     }
                                 }

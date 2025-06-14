@@ -222,6 +222,8 @@ export type GHWorkflowActionSpecifier =
           __KIND: 'repository'
           owner: string
           repo: string
+          ref: string
+          // original string value of `uses:` from workflow
+          specifier: string
           subdirectory?: string
-          ref?: string
       }

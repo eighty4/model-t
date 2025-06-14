@@ -1590,6 +1590,8 @@ jobs:
                                                 owner: 'actions',
                                                 repo: 'checkout',
                                                 ref: 'v4',
+                                                specifier:
+                                                    'actions/checkout@v4',
                                             },
                                         },
                                     ],
@@ -1651,6 +1653,8 @@ jobs:
                                                 owner: 'actions',
                                                 repo: 'checkout',
                                                 ref: 'v4',
+                                                specifier:
+                                                    'actions/checkout@v4',
                                             },
                                         },
                                     ],
@@ -1689,6 +1693,8 @@ jobs:
                                                 owner: 'actions',
                                                 repo: 'checkout',
                                                 ref: 'v4',
+                                                specifier:
+                                                    'actions/checkout@v4',
                                             },
                                         },
                                     ],
@@ -1727,6 +1733,8 @@ jobs:
                                                 owner: 'actions',
                                                 repo: 'checkout',
                                                 ref: 'v4',
+                                                specifier:
+                                                    'actions/checkout@v4',
                                             },
                                         },
                                     ],
@@ -1765,6 +1773,8 @@ jobs:
                                                 owner: 'actions',
                                                 repo: 'checkout',
                                                 ref: 'v4',
+                                                specifier:
+                                                    'actions/checkout@v4',
                                             },
                                         },
                                     ],
@@ -2015,7 +2025,7 @@ jobs:
                             })
                         })
 
-                        it('.uses: repo without ref or subdirectory', () => {
+                        it('.uses: repo !ref !valid', () => {
                             const yaml = `
 jobs:
   some-job:
@@ -2026,24 +2036,16 @@ jobs:
                             assert.deepEqual(readWorkflowModel(yaml), {
                                 workflow: {
                                     on: {},
-                                    jobs: {
-                                        'some-job': {
-                                            __KIND: 'steps',
-                                            runsOn: 'ubuntu-latest',
-                                            steps: [
-                                                {
-                                                    __KIND: 'uses',
-                                                    uses: {
-                                                        __KIND: 'repository',
-                                                        owner: 'eighty4',
-                                                        repo: 'l3',
-                                                    },
-                                                },
-                                            ],
-                                        },
-                                    },
+                                    jobs: {},
                                 },
-                                schemaErrors: [],
+                                schemaErrors: [
+                                    {
+                                        message:
+                                            'Must specify GitHub Action ref in format `eighty4/l3@{ref}`',
+                                        object: 'step',
+                                        path: 'jobs.some-job.steps[0].uses',
+                                    },
+                                ],
                             })
                         })
 
@@ -2053,7 +2055,7 @@ jobs:
   some-job:
     runs-on: ubuntu-latest
     steps:
-      - uses: eighty4/l3/action`
+      - uses: eighty4/l3/action@main`
 
                             assert.deepEqual(readWorkflowModel(yaml), {
                                 workflow: {
@@ -2069,6 +2071,9 @@ jobs:
                                                         __KIND: 'repository',
                                                         owner: 'eighty4',
                                                         repo: 'l3',
+                                                        ref: 'main',
+                                                        specifier:
+                                                            'eighty4/l3/action@main',
                                                         subdirectory: 'action',
                                                     },
                                                 },
@@ -2080,7 +2085,7 @@ jobs:
                             })
                         })
 
-                        it('.uses: repo with ref', () => {
+                        it('.uses: repo with ref tagname', () => {
                             const yaml = `
 jobs:
   some-job:
@@ -2103,6 +2108,43 @@ jobs:
                                                         owner: 'eighty4',
                                                         repo: 'l3',
                                                         ref: 'v2',
+                                                        specifier:
+                                                            'eighty4/l3@v2',
+                                                    },
+                                                },
+                                            ],
+                                        },
+                                    },
+                                },
+                                schemaErrors: [],
+                            })
+                        })
+
+                        it('.uses: repo with ref SHA', () => {
+                            const yaml = `
+jobs:
+  some-job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: eighty4/l3@751315767bfb75e1fa958e649d93e15991238d72`
+
+                            assert.deepEqual(readWorkflowModel(yaml), {
+                                workflow: {
+                                    on: {},
+                                    jobs: {
+                                        'some-job': {
+                                            __KIND: 'steps',
+                                            runsOn: 'ubuntu-latest',
+                                            steps: [
+                                                {
+                                                    __KIND: 'uses',
+                                                    uses: {
+                                                        __KIND: 'repository',
+                                                        owner: 'eighty4',
+                                                        repo: 'l3',
+                                                        ref: '751315767bfb75e1fa958e649d93e15991238d72',
+                                                        specifier:
+                                                            'eighty4/l3@751315767bfb75e1fa958e649d93e15991238d72',
                                                     },
                                                 },
                                             ],
@@ -2122,7 +2164,7 @@ jobs:
   some-job:
     runs-on: ubuntu-latest
     steps:
-      - uses: eighty4/l3/action
+      - uses: eighty4/l3/action@v2
         with:
           some-input: asdf`
 
@@ -2140,6 +2182,9 @@ jobs:
                                                     __KIND: 'repository',
                                                     owner: 'eighty4',
                                                     repo: 'l3',
+                                                    ref: 'v2',
+                                                    specifier:
+                                                        'eighty4/l3/action@v2',
                                                     subdirectory: 'action',
                                                 },
                                                 with: {
@@ -2160,7 +2205,7 @@ jobs:
   some-job:
     runs-on: ubuntu-latest
     steps:
-      - uses: eighty4/l3/action
+      - uses: eighty4/l3/action@v2
         with:
           some-input: true`
 
@@ -2178,6 +2223,9 @@ jobs:
                                                     __KIND: 'repository',
                                                     owner: 'eighty4',
                                                     repo: 'l3',
+                                                    ref: 'v2',
+                                                    specifier:
+                                                        'eighty4/l3/action@v2',
                                                     subdirectory: 'action',
                                                 },
                                                 with: {
@@ -2198,7 +2246,7 @@ jobs:
   some-job:
     runs-on: ubuntu-latest
     steps:
-      - uses: eighty4/l3/action
+      - uses: eighty4/l3/action@v2
         with:
           some-input: 42`
 
@@ -2216,6 +2264,9 @@ jobs:
                                                     __KIND: 'repository',
                                                     owner: 'eighty4',
                                                     repo: 'l3',
+                                                    ref: 'v2',
+                                                    specifier:
+                                                        'eighty4/l3/action@v2',
                                                     subdirectory: 'action',
                                                 },
                                                 with: {
@@ -2236,7 +2287,7 @@ jobs:
   some-job:
     runs-on: ubuntu-latest
     steps:
-      - uses: eighty4/l3/action
+      - uses: eighty4/l3/action@v2
         with:
           some-input:
             bunk: data`
