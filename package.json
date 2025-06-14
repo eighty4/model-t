@@ -18,7 +18,10 @@
     "build": "tsc",
     "fmt": "prettier --write .",
     "fmtcheck": "prettier --check .",
-    "test": "node --test lib/**/*.test.ts",
+    "test": "pnpm test:unit && pnpm test:gold",
+    "test:unit": "node --test lib/**/*.test.ts",
+    "test:gold": "cd gold && ./verify.sh",
+    "test:gold:update": "cd gold && ./update.sh",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

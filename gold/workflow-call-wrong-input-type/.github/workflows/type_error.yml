@@ -1,0 +1,8 @@
+on:
+  push:
+
+jobs:
+  bad-workflow-input:
+    uses: ./.github/workflows/workflow_call.yml
+    with:
+      number_input: not a number

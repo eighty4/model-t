@@ -1,0 +1,6 @@
+on:
+  push:
+
+jobs:
+  bad-uses-workflow:
+    uses: ./.github/workflows/where_dat.yml

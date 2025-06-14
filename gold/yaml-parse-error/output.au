@@ -1,0 +1,5 @@
+[31m✗[0m yaml_error.yml error: Map keys must be unique at line 2, column 17:
+
+  workflow_call:
+                ^
+

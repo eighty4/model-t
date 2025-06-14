@@ -1,0 +1,12 @@
+on:
+  workflow_call:
+    inputs:
+      number_input:
+        type: number
+        required: true
+
+jobs:
+  do-important-work:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo do it

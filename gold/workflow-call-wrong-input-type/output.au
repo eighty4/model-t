@@ -1,0 +1,2 @@
+[31m✗[0m type_error.yml error: input `number_input` is a `number` input and job `bad-workflow-input` cannot call workflow with a `string` value
+[32m✔[0m workflow_call.yml is valid
