@@ -12,67 +12,107 @@ export type GHActionSchemaError = {
     path: string
 }
 
-export function readActionModel(s: string): GHAction {
+export type GHActionReadResult = {
+    action: GHAction
+    schemaErrors: Array<GHActionSchemaError>
+}
+
+class SchemaError {
+    schemaError
+    constructor(schemaError: GHActionSchemaError) {
+        this.schemaError = schemaError
+    }
+}
+
+export function readActionModel(s: string): GHActionReadResult {
     const actionYaml = readYaml(s)
     const action: Partial<GHAction> = {}
+    const schemaErrors: Array<GHActionSchemaError> = []
     //action.name = expectString(actionYaml, 'name')
     //if ('author' in actionYaml) {
     //    action.author = parseString(actionYaml.author)
     //}
     //action.description = expectString(actionYaml, 'description')
     if ('inputs' in actionYaml) {
-        action.inputs = collectInputs(actionYaml.inputs)
+        action.inputs = collectInputs(actionYaml.inputs, schemaErrors)
     }
     //if ('outputs' in actionYaml) {
     //    action.outputs = collectOutputs(actionYaml.outputs)
     //}
-    return action as GHAction
-}
-
-function expectString(v: Record<string, unknown>, k: string): string {
-    if (k in v) {
-        return parseString(v[k])
+    return {
+        action: action as GHAction,
+        schemaErrors,
     }
-    throw new Error()
 }
 
-function parseString(v: unknown): string {
-    if (isStringLike(v)) {
-        return convertStringLike(v)
-    }
-    throw new Error()
-}
-
-function collectInputs(inputsYaml: unknown): Record<string, GHActionInput> {
+function collectInputs(
+    inputsYaml: unknown,
+    schemaErrors: Array<GHActionSchemaError>,
+): Record<string, GHActionInput> {
     if (!isMap(inputsYaml)) {
-        throw new Error()
+        schemaErrors.push({
+            message: 'Must be a map of inputs',
+            path: 'inputs',
+        })
+        return {}
     }
     const inputs: Record<string, GHActionInput> = {}
     for (const [inputId, inputYaml] of Object.entries(inputsYaml)) {
-        inputs[inputId] = parseInput(inputYaml)
+        try {
+            inputs[inputId] = parseInput(inputYaml, inputId)
+        } catch (e: unknown) {
+            if (e instanceof SchemaError) {
+                schemaErrors.push(e.schemaError)
+            } else {
+                throw e
+            }
+        }
     }
     return inputs
 }
 
-function parseInput(inputYaml: unknown): GHActionInput {
+function parseInput(inputYaml: unknown, inputId: string): GHActionInput {
     if (!isMap(inputYaml)) {
-        throw new Error()
+        throw new SchemaError({
+            message: 'Must be a map of input properties',
+            path: `inputs.${inputId}`,
+        })
+    }
+    if (!('description' in inputYaml)) {
+        throw new SchemaError({
+            message: 'Field is required',
+            path: `inputs.${inputId}.description`,
+        })
+    }
+    if (!isStringLike(inputYaml.description)) {
+        throw new SchemaError({
+            message: 'Must be a string',
+            path: `inputs.${inputId}.description`,
+        })
     }
     const input: Partial<GHActionInput> = {
-        description: expectString(inputYaml, 'description'),
+        description: convertStringLike(inputYaml.description),
     }
     if ('default' in inputYaml) {
-        if (isStringLike(inputYaml.default)) {
+        if (inputYaml.default === null) {
+            input.default = null
+        } else if (isStringLike(inputYaml.default)) {
             input.default = convertStringLike(inputYaml.default)
         } else {
-            throw new Error()
+            throw new SchemaError({
+                message: 'Must be a string or null',
+                path: `inputs.${inputId}.default`,
+            })
         }
     }
     if ('required' in inputYaml) {
         if (isBoolean(inputYaml.required)) {
             input.required = inputYaml.required
         } else {
-            throw new Error()
+            throw new SchemaError({
+                message: 'Must be a boolean',
+                path: `inputs.${inputId}.required`,
+            })
         }
     }
     if ('deprecationMessage' in inputYaml) {
@@ -81,7 +121,10 @@ function parseInput(inputYaml: unknown): GHActionInput {
                 inputYaml.deprecationMessage,
             )
         } else {
-            throw new Error()
+            throw new SchemaError({
+                message: 'Must be a string',
+                path: `inputs.${inputId}.deprecationMessage`,
+            })
         }
     }
     return input as GHActionInput

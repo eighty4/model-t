@@ -41,7 +41,7 @@ export type GHActionRuns =
 export type GHActionInput = {
     description: string
     required?: boolean
-    default?: string
+    default?: null | string
     deprecationMessage?: string
 }
 

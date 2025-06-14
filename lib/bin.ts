@@ -115,12 +115,26 @@ async function validateProjectWorkflow(projectRoot: string, workflow: string) {
     }
 }
 
+// todo cannot currently tell whether e.workflow is the validation
+//  entrypoint or a workflow using a workflow using an action
 function workflowErrorExit(e: GHWorkflowError, validating: string) {
     const output = [`${redBooBoo()} ${validating}:`]
-    if (e.code === 'FILE_NOT_FOUND') {
-        output.push(`could not find workflow \`${e.workflow}\``)
-    } else if (e.code === 'WORKFLOW_SCHEMA') {
-        output.push(`schema errors in workflow \`${e.workflow}\``)
+    switch (e.code) {
+        case 'ACTION_NOT_FOUND':
+            output.push(`could not find action.yml for \`${e.action}\``)
+            break
+        case 'ACTION_SCHEMA':
+            output.push(`schema errors for \`${e.action}\``)
+            break
+        case 'WORKFLOW_NOT_FOUND':
+            output.push(`could not find workflow \`${e.workflow}\``)
+            break
+        case 'WORKFLOW_RUNTIME':
+            output.push(e.message)
+            break
+        case 'WORKFLOW_SCHEMA':
+            output.push(`schema errors in workflow \`${e.workflow}\``)
+            break
     }
     console.log(...output)
     if (e.schemaErrors?.length) {

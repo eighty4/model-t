@@ -5,7 +5,7 @@ import {
     GitHubApiNotFound,
     RepoObjectFetcher,
 } from './fileFetcher.ts'
-import { GHWorkflowAnalyzer } from './workflowAnalyzer.ts'
+import { GHWorkflowAnalyzer, GHWorkflowError } from './workflowAnalyzer.ts'
 
 class TestFileFetcher implements FileFetcher {
     files: Record<string, string>
@@ -69,9 +69,11 @@ jobs:
             const analyzer = new GHWorkflowAnalyzer(files)
             await assert.rejects(
                 () => analyzer.analyzeWorkflow('.github/workflows/release.yml'),
-                new Error(
-                    `job \`verify\` using a workflow requires \`on.workflow_call:\` in the called workflow`,
-                ),
+                e => {
+                    assert.equal(e.code, 'WORKFLOW_RUNTIME')
+                    assert.equal(e.message, `job \`verify\` using a workflow requires \`on.workflow_call:\` in the called workflow`)
+                    return true
+                }
             )
         })
 
@@ -101,10 +103,11 @@ jobs:
             const analyzer = new GHWorkflowAnalyzer(files)
             await assert.rejects(
                 () => analyzer.analyzeWorkflow('.github/workflows/release.yml'),
-
-                new Error(
-                    `input \`run_tests\` is required to call workflow from job \`verify\``,
-                ),
+                e => {
+                    assert.equal(e.code, 'WORKFLOW_RUNTIME')
+                    assert.equal(e.message, `input \`run_tests\` is required to call workflow from job \`verify\``)
+                    return true
+                }
             )
         })
 
@@ -136,10 +139,11 @@ jobs:
             const analyzer = new GHWorkflowAnalyzer(files)
             await assert.rejects(
                 () => analyzer.analyzeWorkflow('.github/workflows/release.yml'),
-
-                new Error(
-                    `input \`run_tests\` is a \`boolean\` input and job \`verify\` cannot call workflow with a \`string\` value`,
-                ),
+                e => {
+                    assert.equal(e.code, 'WORKFLOW_RUNTIME')
+                    assert.equal(e.message, `input \`run_tests\` is a \`boolean\` input and job \`verify\` cannot call workflow with a \`string\` value`)
+                    return true
+                }
             )
         })
 
@@ -233,9 +237,11 @@ inputs:
             const analyzer = new GHWorkflowAnalyzer(files, objects)
             await assert.rejects(
                 () => analyzer.analyzeWorkflow('.github/workflows/release.yml'),
-                new Error(
-                    'input `must_set` is required to call action `eighty4/l3/setup@v3` from `step[0]` in job `verify`',
-                ),
+                e => {
+                    assert.equal(e.code, 'WORKFLOW_RUNTIME')
+                    assert.equal(e.message, 'input `must_set` is required to call action `eighty4/l3/setup@v3` from `step[0]` in job `verify`')
+                    return true
+                }
             )
         })
 

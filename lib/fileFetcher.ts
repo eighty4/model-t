@@ -22,7 +22,6 @@ export class FileNotFoundError extends Error {
 export class GitHubApiNotFound extends Error {
     constructor() {
         super('gh api not found')
-        this.name = this.constructor.name
     }
 }
 
@@ -39,6 +38,13 @@ export class GitHubApiRateLimited extends Error {
 export class GitHubApiUnauthorized extends Error {
     constructor() {
         super('gh api unauthorized')
+        this.name = this.constructor.name
+    }
+}
+
+export class NetworkError extends Error {
+    constructor(cause: unknown) {
+        super('network error', { cause })
         this.name = this.constructor.name
     }
 }
@@ -95,6 +101,19 @@ function checkApiResponseErrors(response: Response): void | never {
     }
 }
 
+async function fetchInner(
+    url: string,
+    method: string,
+    headers: Headers,
+    body?: string,
+): Promise<Response> | never {
+    try {
+        return await fetch(url, { method, headers, body })
+    } catch (e: unknown) {
+        throw new NetworkError(e)
+    }
+}
+
 // for fetching from a GitHub repository used to retrieve external
 // workflows and actions
 export abstract class RepoObjectFetcher {
@@ -116,7 +135,7 @@ export abstract class RepoObjectFetcher {
             p = `${subdir}${subdir.endsWith('/') ? '' : '/'}${p}`
         }
         try {
-            return this.fetchFile(owner, repo, ref, p)
+            return await this.fetchFile(owner, repo, ref, p)
         } catch (e: unknown) {
             if (e instanceof GitHubApiNotFound) {
                 return this.fetchFile(
@@ -163,11 +182,12 @@ query {
             authorization: 'Bearer ' + this.#gitHubToken,
             'content-type': 'application/json',
         })
-        const response = await fetch('https://api.github.com/graphql', {
-            method: 'POST',
+        const response = await fetchInner(
+            'https://api.github.com/graphql',
+            'POST',
             headers,
-            body: JSON.stringify({ query }),
-        })
+            JSON.stringify({ query }),
+        )
         checkApiResponseErrors(response)
         const json = await response.json()
         const source = json.data.repository?.object?.text
@@ -199,7 +219,7 @@ export class RestFileFetcher extends RepoObjectFetcher {
         if (!!this.#gitHubToken) {
             headers.set('authorization', 'Bearer ' + this.#gitHubToken)
         }
-        const response = await fetch(url, { headers })
+        const response = await fetchInner(url, 'GET', headers)
         checkApiResponseErrors(response)
         return await response.text()
     }

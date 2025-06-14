@@ -1,38 +1,55 @@
 import {
     type FileFetcher,
     FileNotFoundError,
+    GitHubApiNotFound,
+    NetworkError,
     type RepoObjectFetcher,
 } from './fileFetcher.ts'
-import type { GHWorkflow } from './model.ts'
-import { readActionModel } from './readAction.ts'
+import type { GHAction, GHWorkflow } from './model.ts'
+import { type GHActionSchemaError, readActionModel } from './readAction.ts'
 import {
     type GHWorkflowSchemaError,
     readWorkflowModel,
 } from './readWorkflow.ts'
 
 export type GHWorkflowErrorCode =
-    | 'FILE_NOT_FOUND'
+    | 'ACTION_NOT_FOUND'
+    | 'ACTION_SCHEMA'
+    | 'WORKFLOW_NOT_FOUND'
     | 'WORKFLOW_RUNTIME'
     | 'WORKFLOW_SCHEMA'
 
 export class GHWorkflowError extends Error {
     code: GHWorkflowErrorCode
     workflow: string
+    action: string | null
     referencedBy: string | null
-    schemaErrors: Array<GHWorkflowSchemaError> | null
+    schemaErrors: Array<GHActionSchemaError | GHWorkflowSchemaError> | null
 
     constructor(
         code: GHWorkflowErrorCode,
         workflow: string,
-        referencedBy: string | null,
-        schemaErrors: Array<GHWorkflowSchemaError> | null,
+        metadata: {
+            action?: string
+            message?: string
+            referencedBy?: string
+            schemaErrors?: Array<GHActionSchemaError | GHWorkflowSchemaError>
+        },
     ) {
-        super(code)
+        super(metadata?.message || code)
         this.name = this.constructor.name
         this.code = code
         this.workflow = workflow
-        this.referencedBy = referencedBy
-        this.schemaErrors = schemaErrors
+        this.action = metadata.action || null
+        this.referencedBy = metadata.referencedBy || null
+        this.schemaErrors = metadata.schemaErrors || null
+    }
+}
+
+class RuntimeError extends Error {
+    constructor(message: string) {
+        super(message)
+        this.name = this.constructor.name
     }
 }
 
@@ -50,9 +67,21 @@ export class GHWorkflowAnalyzer {
     async analyzeWorkflow(wfPath: string) {
         const workflow = await this.#getWorkflow(wfPath)
         await Promise.all(
-            Object.keys(workflow.jobs).map(jobId =>
-                this.#analyzeJob(workflow, jobId),
-            ),
+            Object.keys(workflow.jobs).map(async jobId => {
+                try {
+                    await this.#analyzeJob(workflow, jobId)
+                } catch (e: unknown) {
+                    if (e instanceof RuntimeError) {
+                        throw new GHWorkflowError(
+                            'WORKFLOW_RUNTIME',
+                            workflow.__PATH!,
+                            { message: e.message },
+                        )
+                    } else {
+                        throw e
+                    }
+                }
+            }),
         )
     }
 
@@ -62,7 +91,7 @@ export class GHWorkflowAnalyzer {
             const usesWorkflow = await this.#getWorkflow(job.uses, workflow)
             const onCall = usesWorkflow.on.workflow_call
             if (!onCall) {
-                throw new Error(
+                throw new RuntimeError(
                     `job \`${jobId}\` using a workflow requires \`on.workflow_call:\` in the called workflow`,
                 )
             }
@@ -73,13 +102,13 @@ export class GHWorkflowAnalyzer {
                         typeof input.default === 'undefined'
                     ) {
                         if (!job.with || !(inputId in job.with)) {
-                            throw new Error(
+                            throw new RuntimeError(
                                 `input \`${inputId}\` is required to call workflow from job \`${jobId}\``,
                             )
                         } else if (
                             !isValidInputDataType(input.type, job.with[inputId])
                         ) {
-                            throw new Error(
+                            throw new RuntimeError(
                                 `input \`${inputId}\` is a \`${input.type}\` input and job \`${jobId}\` cannot call workflow with a \`${typeof job.with[inputId]}\` value`,
                             )
                         }
@@ -91,13 +120,9 @@ export class GHWorkflowAnalyzer {
             for (const [stepIndex, step] of Object.entries(job.steps)) {
                 if (step.__KIND === 'uses') {
                     if (step.uses.__KIND === 'repository') {
-                        const action = readActionModel(
-                            await this.#repoObjects.fetchActionMetadata(
-                                step.uses.owner,
-                                step.uses.repo,
-                                step.uses.ref,
-                                step.uses.subdirectory,
-                            ),
+                        const action = await this.#readAction(
+                            step.uses,
+                            workflow,
                         )
                         if (action.inputs) {
                             for (const [inputId, input] of Object.entries(
@@ -108,7 +133,7 @@ export class GHWorkflowAnalyzer {
                                     typeof input.default === 'undefined'
                                 ) {
                                     if (!step.with || !(inputId in step.with)) {
-                                        throw new Error(
+                                        throw new RuntimeError(
                                             `input \`${inputId}\` is required to call action \`${step.uses.specifier}\` from \`${step.id || step.name || `step[${stepIndex}]`}\` in job \`${jobId}\``,
                                         )
                                     }
@@ -131,6 +156,49 @@ export class GHWorkflowAnalyzer {
         )
     }
 
+    async #readAction(
+        actionSpec: {
+            owner: string
+            repo: string
+            ref: string
+            specifier: string
+            subdirectory?: string
+        },
+        referencedBy: GHWorkflow,
+    ): Promise<GHAction> {
+        try {
+            const { action, schemaErrors } = readActionModel(
+                await this.#repoObjects.fetchActionMetadata(
+                    actionSpec.owner,
+                    actionSpec.repo,
+                    actionSpec.ref,
+                    actionSpec.subdirectory,
+                ),
+            )
+            if (schemaErrors.length) {
+                throw new GHWorkflowError(
+                    'ACTION_SCHEMA',
+                    referencedBy.__PATH!,
+                    { action: actionSpec.specifier, schemaErrors },
+                )
+            } else {
+                return action
+            }
+        } catch (e) {
+            // todo handle NetworkError by validating locally and skipping
+            //  validations of remote resources
+            if (e instanceof GitHubApiNotFound || e instanceof NetworkError) {
+                throw new GHWorkflowError(
+                    'ACTION_NOT_FOUND',
+                    referencedBy.__PATH!,
+                    { action: actionSpec.specifier },
+                )
+            } else {
+                throw e
+            }
+        }
+    }
+
     async #readWorkflow(
         p: string,
         referencedBy?: GHWorkflow,
@@ -139,24 +207,19 @@ export class GHWorkflowAnalyzer {
             const wfYaml = await this.#files.fetchFile(p)
             const { workflow, schemaErrors } = readWorkflowModel(wfYaml)
             if (schemaErrors.length) {
-                throw new GHWorkflowError(
-                    'WORKFLOW_SCHEMA',
-                    p,
-                    referencedBy?.__PATH || null,
+                throw new GHWorkflowError('WORKFLOW_SCHEMA', p, {
+                    referencedBy: referencedBy?.__PATH,
                     schemaErrors,
-                )
+                })
             } else {
                 workflow.__PATH = p
                 return workflow
             }
         } catch (e: unknown) {
             if (e instanceof FileNotFoundError) {
-                throw new GHWorkflowError(
-                    'FILE_NOT_FOUND',
-                    p,
-                    referencedBy?.__PATH || null,
-                    null,
-                )
+                throw new GHWorkflowError('WORKFLOW_NOT_FOUND', p, {
+                    referencedBy: referencedBy?.__PATH,
+                })
             } else {
                 throw e
             }
