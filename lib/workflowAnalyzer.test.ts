@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import type { FileFetcher } from './fileFetcher.ts'
+import {
+    type FileFetcher,
+    GitHubApiNotFound,
+    RepoObjectFetcher,
+} from './fileFetcher.ts'
 import { GHWorkflowAnalyzer } from './workflowAnalyzer.ts'
 
 class TestFileFetcher implements FileFetcher {
@@ -14,6 +18,28 @@ class TestFileFetcher implements FileFetcher {
             throw new Error(p + ' not found in test files')
         }
         return Promise.resolve(file)
+    }
+}
+
+class TestRepoObjectFetcher extends RepoObjectFetcher {
+    objects: Record<string, Record<string, Record<string, string>>>
+    constructor(
+        objects: Record<string, Record<string, Record<string, string>>>,
+    ) {
+        super()
+        this.objects = objects
+    }
+    fetchFile(
+        owner: string,
+        repo: string,
+        ref: string,
+        p: string,
+    ): Promise<string> {
+        try {
+            return Promise.resolve(this.objects[owner][repo][ref][p])
+        } catch (_e) {
+            throw new GitHubApiNotFound()
+        }
     }
 }
 
@@ -173,6 +199,106 @@ jobs:
             })
 
             const analyzer = new GHWorkflowAnalyzer(files)
+            await analyzer.analyzeWorkflow('.github/workflows/release.yml')
+        })
+    })
+
+    describe('step calls a repository hosted action', () => {
+        it('error action input required && !with', async () => {
+            const files = new TestFileFetcher({
+                '.github/workflows/release.yml': `
+on:
+  push:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: eighty4/l3/setup@v3
+`,
+            })
+            const objects = new TestRepoObjectFetcher({
+                eighty4: {
+                    l3: {
+                        v3: {
+                            'setup/action.yml': `
+inputs:
+  must_set:
+    description: mandatory
+    required: true
+`,
+                        },
+                    },
+                },
+            })
+            const analyzer = new GHWorkflowAnalyzer(files, objects)
+            await assert.rejects(
+                () => analyzer.analyzeWorkflow('.github/workflows/release.yml'),
+                new Error(
+                    'input `must_set` is required to call action `eighty4/l3/setup@v3` from `step[0]` in job `verify`',
+                ),
+            )
+        })
+
+        it('ok action input required && with', async () => {
+            const files = new TestFileFetcher({
+                '.github/workflows/release.yml': `
+on:
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: eighty4/l3/setup@v3
+        with:
+          must_set: congrats
+`,
+            })
+            const objects = new TestRepoObjectFetcher({
+                eighty4: {
+                    l3: {
+                        v3: {
+                            'setup/action.yml': `
+inputs:
+  must_set:
+    description: mandatory
+    required: true
+`,
+                        },
+                    },
+                },
+            })
+            const analyzer = new GHWorkflowAnalyzer(files, objects)
+            await analyzer.analyzeWorkflow('.github/workflows/release.yml')
+        })
+
+        it('ok action input required && default', async () => {
+            const files = new TestFileFetcher({
+                '.github/workflows/release.yml': `
+on:
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: eighty4/l3/setup@v3
+`,
+            })
+            const objects = new TestRepoObjectFetcher({
+                eighty4: {
+                    l3: {
+                        v3: {
+                            'setup/action.yml': `
+inputs:
+  must_set:
+    description: mandatory
+    required: true
+    default: congrats
+`,
+                        },
+                    },
+                },
+            })
+            const analyzer = new GHWorkflowAnalyzer(files, objects)
             await analyzer.analyzeWorkflow('.github/workflows/release.yml')
         })
     })

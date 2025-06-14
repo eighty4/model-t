@@ -1,7 +1,6 @@
-import { readFile } from 'node:fs/promises'
-import { parse as parseYaml } from 'yaml'
 import type {
     GHWorkflow,
+    GHWorkflowActionSpecifier,
     GHWorkflowCallInput,
     GHWorkflowDispatchInput,
     GHWorkflowEvent,
@@ -24,6 +23,20 @@ import type {
     GHWorkflowStepUsesAction,
 } from './model.ts'
 import { GHWorkflowEvents } from './model.ts'
+import {
+    convertMapOfStringLikes,
+    convertStringLike,
+    isArrayOfMaps,
+    isArrayOfStringLikes,
+    isArrayOfStrings,
+    isBoolean,
+    isMap,
+    isMapOfStringLikes,
+    isNumber,
+    isString,
+    isStringLike,
+    readYaml,
+} from './readingFns.ts'
 
 const jobAndStepIdRegex = /^[_a-z]{1}[_\-a-z\d]+$/
 
@@ -52,35 +65,8 @@ export type GHWorkflowReadResult = {
     schemaErrors: Array<GHWorkflowSchemaError>
 }
 
-export async function readWorkflowFromFile(
-    p: string,
-): Promise<GHWorkflowReadResult> {
-    if (typeof p !== 'string' || !p.length) {
-        throw new Error('YAML path must be a string')
-    }
-    let yaml: string
-    try {
-        yaml = await readFile(p, 'utf-8')
-    } catch (e: unknown) {
-        if (errorIsFileNotFound(e)) {
-            throw new Error(`YAML file ${p} not found`)
-        } else {
-            throw e
-        }
-    }
-    return readWorkflowFromString(yaml)
-}
-
-export function readWorkflowFromString(s: string): GHWorkflowReadResult {
-    if (typeof s !== 'string' || !s.length) {
-        throw new Error('YAML input must be a string')
-    }
-    const wfYaml: unknown = parseYaml(s)
-    if (!isMap(wfYaml)) {
-        throw new Error(
-            `This ${typeof wfYaml} YAML is simply the opportunity to begin again, this time with a valid workflow YAML`,
-        )
-    }
+export function readWorkflowModel(s: string): GHWorkflowReadResult {
+    const wfYaml = readYaml(s)
     const schemaErrors: Array<GHWorkflowSchemaError> = []
     const on = collectEventCfgs(wfYaml, schemaErrors)
     const jobs = collectJobs(wfYaml, schemaErrors)
@@ -858,15 +844,7 @@ function collectSteps(
         } else if ('uses' in stepYaml) {
             const usesStep = step as Partial<GHWorkflowStepUsesAction>
             usesStep.__KIND = 'uses'
-            if (isString(stepYaml.uses)) {
-                usesStep.uses = stepYaml.uses
-            } else {
-                throw new SchemaError({
-                    message: '`uses` must be a string',
-                    object: 'step',
-                    path: `jobs.${jobId}.steps[${i}].uses`,
-                })
-            }
+            usesStep.uses = parseUsesActionValue(stepYaml.uses, jobId, i)
             if ('with' in stepYaml) {
                 if (isMapOfStringLikes(stepYaml.with)) {
                     usesStep.with = stepYaml.with
@@ -897,67 +875,52 @@ function collectSteps(
     return steps
 }
 
-function convertMapOfStringLikes(
-    c: Record<string, boolean | number | string>,
-): Record<string, string> {
-    const m: Record<string, string> = {}
-    for (const [k, v] of Object.entries(c)) {
-        m[k] = convertStringLike(v)
+function parseUsesActionValue(
+    v: unknown,
+    jobId: string,
+    stepIndex: number,
+): GHWorkflowActionSpecifier {
+    if (!isString(v)) {
+        throw new SchemaError({
+            message: '`uses` must be a string',
+            object: 'step',
+            path: `jobs.${jobId}.steps[${stepIndex}].uses`,
+        })
     }
-    return m
-}
-
-function convertStringLike(c: boolean | number | string): string {
-    return isString(c) ? c : `${c}`
-}
-
-function errorIsFileNotFound(e: unknown): boolean {
-    return (
-        e !== null &&
-        typeof e === 'object' &&
-        'code' in e &&
-        e.code === 'ENOENT'
-    )
-}
-
-function isArrayOfMaps(v: unknown): v is Array<Record<string, unknown>> {
-    return Array.isArray(v) && v.every(isMap)
-}
-
-function isArrayOfStringLikes(
-    v: unknown,
-): v is Array<boolean | number | string> {
-    return Array.isArray(v) && v.every(isStringLike)
-}
-
-function isArrayOfStrings(v: unknown): v is Array<string> {
-    return Array.isArray(v) && v.every(isString)
-}
-
-function isBoolean(v: unknown): v is boolean {
-    return typeof v === 'boolean'
-}
-
-function isMap(v: unknown): v is Record<string, unknown> {
-    return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
-
-function isMapOfStringLikes(
-    v: unknown,
-): v is Record<string, boolean | number | string> {
-    return isMap(v) && Object.values(v).every(isStringLike)
-}
-
-function isNumber(v: unknown): v is number {
-    return typeof v === 'number'
-}
-
-function isString(v: unknown): v is string {
-    return typeof v === 'string'
-}
-
-function isStringLike(v: unknown): v is string | number | boolean {
-    return isString(v) || isBoolean(v) || isNumber(v)
+    if (v.startsWith('docker://')) {
+        return {
+            __KIND: 'docker',
+            uri: v,
+        }
+    }
+    if (/^\.?\.\//.test(v)) {
+        return {
+            __KIND: 'filesystem',
+            path: v,
+        }
+    }
+    const action: Partial<GHWorkflowActionSpecifier> = {
+        __KIND: 'repository',
+    }
+    const splitOnRef = v.split('@', 2)
+    if (splitOnRef.length > 1) {
+        // todo regex validate ref
+        action.ref = splitOnRef[1]
+    }
+    const splitPaths = splitOnRef[0].split('/')
+    if (splitPaths.length < 2) {
+        throw new SchemaError({
+            message: 'Must be a resolvable GitHub Action',
+            object: 'step',
+            path: `jobs.${jobId}.steps[${stepIndex}].uses`,
+        })
+    }
+    action.owner = splitPaths[0]
+    action.repo = splitPaths[1]
+    if (splitPaths.length > 2) {
+        action.subdirectory = splitPaths.splice(2).join('/')
+    }
+    return action as GHWorkflowActionSpecifier
 }
 
 function isWorkflowEvent(v: string): v is GHWorkflowEvent {

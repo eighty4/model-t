@@ -2,7 +2,10 @@
 
 ## [Unreleased]
 
-- ???
+### Added
+
+- Fetches action.yml for actions used by workflows and validates values are
+  set for required action inputs
 
 ## [v0.0.2] - 2025-06-04
 

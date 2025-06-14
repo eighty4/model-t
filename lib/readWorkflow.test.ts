@@ -1,35 +1,13 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { readWorkflowFromFile, readWorkflowFromString } from './readModel.ts'
+import { readWorkflowModel } from './readWorkflow.ts'
 
 describe('reading workflows', () => {
-    describe('from file', () => {
-        it('throws on !valid path', async () => {
-            await assert.rejects(
-                () => readWorkflowFromFile(42 as unknown as string),
-                new Error('YAML path must be a string'),
-            )
-            await assert.rejects(
-                () => readWorkflowFromFile(''),
-                new Error('YAML path must be a string'),
-            )
-            await assert.rejects(
-                () => readWorkflowFromFile('fixtures/bunk'),
-                new Error('YAML file fixtures/bunk not found'),
-            )
-        })
-
-        it('works', async () => {
-            const result = await readWorkflowFromFile('fixtures/node_test.yml')
-            assert.deepEqual(result.schemaErrors, [])
-        })
-    })
-
     describe('bad input', () => {
         it('throws error', () => {
             assert.throws(
-                () => readWorkflowFromString('42'),
-                new Error(
+                () => readWorkflowModel('42'),
+                new TypeError(
                     'This number YAML is simply the opportunity to begin again, this time with a valid workflow YAML',
                 ),
             )
@@ -44,7 +22,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-            assert.deepEqual(readWorkflowFromString(yaml), {
+            assert.deepEqual(readWorkflowModel(yaml), {
                 workflow: {
                     jobs: {
                         'some-job': {
@@ -72,7 +50,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-            assert.deepEqual(readWorkflowFromString(yaml), {
+            assert.deepEqual(readWorkflowModel(yaml), {
                 workflow: {
                     on: {},
                     jobs: {
@@ -102,7 +80,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                assert.deepEqual(readWorkflowFromString(yaml), {
+                assert.deepEqual(readWorkflowModel(yaml), {
                     workflow: {
                         on: {},
                         jobs: {
@@ -136,7 +114,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {
                                     workflow_call: {
@@ -170,7 +148,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {
                                     workflow_call: {
@@ -208,7 +186,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {
                                     workflow_call: {
@@ -244,7 +222,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {
                                     workflow_call: {
@@ -282,7 +260,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -321,7 +299,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -362,7 +340,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -399,7 +377,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -435,7 +413,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -475,7 +453,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -512,7 +490,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -548,7 +526,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -588,7 +566,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -625,7 +603,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -662,7 +640,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -707,7 +685,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                    const result = readWorkflowFromString(yaml)
+                    const result = readWorkflowModel(yaml)
                     assert.equal(
                         Object.keys(result.workflow.on.workflow_dispatch.inputs)
                             .length,
@@ -735,7 +713,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -773,7 +751,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -811,7 +789,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -851,7 +829,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -892,7 +870,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -932,7 +910,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -972,7 +950,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -1009,7 +987,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -1046,7 +1024,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/verify.yml`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 jobs: {
                                     'some-job': {
@@ -1083,7 +1061,7 @@ jobs:
   123bunk-id:
     uses: ./.github/workflows/verify.yml`
 
-                assert.deepEqual(readWorkflowFromString(yaml), {
+                assert.deepEqual(readWorkflowModel(yaml), {
                     workflow: {
                         on: {},
                         jobs: {},
@@ -1103,7 +1081,7 @@ jobs:
                 const yaml = `
 jobs:
   some-job: bunk data`
-                assert.deepEqual(readWorkflowFromString(yaml), {
+                assert.deepEqual(readWorkflowModel(yaml), {
                     workflow: {
                         on: {},
                         jobs: {},
@@ -1126,7 +1104,7 @@ jobs:
       - run: echo bunk
     uses: ./.github/workflows/verify.yml`
 
-                assert.deepEqual(readWorkflowFromString(yaml), {
+                assert.deepEqual(readWorkflowModel(yaml), {
                     workflow: {
                         on: {},
                         jobs: {},
@@ -1148,7 +1126,7 @@ jobs:
   some-job:
     needs: verify`
 
-                assert.deepEqual(readWorkflowFromString(yaml), {
+                assert.deepEqual(readWorkflowModel(yaml), {
                     workflow: {
                         on: {},
                         jobs: {},
@@ -1175,7 +1153,7 @@ jobs:
     steps:
       - run: ls`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {
@@ -1207,7 +1185,7 @@ jobs:
     steps:
       - run: ls`
 
-                assert.deepEqual(readWorkflowFromString(yaml), {
+                assert.deepEqual(readWorkflowModel(yaml), {
                     workflow: {
                         on: {},
                         jobs: {},
@@ -1231,7 +1209,7 @@ jobs:
     needs: verify
     uses: ./.github/workflows/another_workflow.yml`
 
-                assert.deepEqual(readWorkflowFromString(yaml), {
+                assert.deepEqual(readWorkflowModel(yaml), {
                     workflow: {
                         on: {},
                         jobs: {
@@ -1253,7 +1231,7 @@ jobs:
     needs: [verify, check-params]
     uses: eighty4/l3/action`
 
-                assert.deepEqual(readWorkflowFromString(yaml), {
+                assert.deepEqual(readWorkflowModel(yaml), {
                     workflow: {
                         on: {},
                         jobs: {
@@ -1277,7 +1255,7 @@ jobs:
       check-params:
     uses: eighty4/l3/action`
 
-                assert.deepEqual(readWorkflowFromString(yaml), {
+                assert.deepEqual(readWorkflowModel(yaml), {
                     workflow: {
                         on: {},
                         jobs: {},
@@ -1302,7 +1280,7 @@ jobs:
     uses: eighty4/l3/action
     if: inputs.doing-cool-devops == 'true'`
 
-                assert.deepEqual(readWorkflowFromString(yaml), {
+                assert.deepEqual(readWorkflowModel(yaml), {
                     workflow: {
                         on: {},
                         jobs: {
@@ -1326,7 +1304,7 @@ jobs:
       some-input:
         bunk: data`
 
-                assert.deepEqual(readWorkflowFromString(yaml), {
+                assert.deepEqual(readWorkflowModel(yaml), {
                     workflow: {
                         on: {},
                         jobs: {},
@@ -1350,7 +1328,7 @@ jobs:
   some-job:
     uses: ./.github/workflows/another_workflow.yml`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {
@@ -1370,7 +1348,7 @@ jobs:
   some-job:
     uses: eighty4/l3/.github/workflows/verify.yml`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {
@@ -1390,7 +1368,7 @@ jobs:
   some-job:
     uses: eighty4/l3/.github/workflows/verify.yml@11bd39a781726e014747c47dbcb1b878050fc0e4`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {
@@ -1411,7 +1389,7 @@ jobs:
     uses:
       bunk: format`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {},
@@ -1434,7 +1412,7 @@ jobs:
     env:
       bunk: cfg`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {},
@@ -1459,7 +1437,7 @@ jobs:
     with:
       some-input: asdf`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {
@@ -1484,7 +1462,7 @@ jobs:
     with:
       some-input: 42`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {
@@ -1509,7 +1487,7 @@ jobs:
     with:
       some-input: true`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {
@@ -1535,7 +1513,7 @@ jobs:
       some-input:
         bunk: data`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {},
@@ -1562,7 +1540,7 @@ jobs:
     runs-on: ubuntu-latest
     steps: counter`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {},
@@ -1592,7 +1570,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {
@@ -1607,7 +1585,12 @@ jobs:
                                     steps: [
                                         {
                                             __KIND: 'uses',
-                                            uses: 'actions/checkout@v4',
+                                            uses: {
+                                                __KIND: 'repository',
+                                                owner: 'actions',
+                                                repo: 'checkout',
+                                                ref: 'v4',
+                                            },
                                         },
                                     ],
                                 },
@@ -1628,7 +1611,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {},
@@ -1653,7 +1636,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {
@@ -1663,7 +1646,12 @@ jobs:
                                     steps: [
                                         {
                                             __KIND: 'uses',
-                                            uses: 'actions/checkout@v4',
+                                            uses: {
+                                                __KIND: 'repository',
+                                                owner: 'actions',
+                                                repo: 'checkout',
+                                                ref: 'v4',
+                                            },
                                         },
                                     ],
                                 },
@@ -1681,7 +1669,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {
@@ -1696,7 +1684,12 @@ jobs:
                                     steps: [
                                         {
                                             __KIND: 'uses',
-                                            uses: 'actions/checkout@v4',
+                                            uses: {
+                                                __KIND: 'repository',
+                                                owner: 'actions',
+                                                repo: 'checkout',
+                                                ref: 'v4',
+                                            },
                                         },
                                     ],
                                 },
@@ -1716,7 +1709,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {
@@ -1729,7 +1722,12 @@ jobs:
                                     steps: [
                                         {
                                             __KIND: 'uses',
-                                            uses: 'actions/checkout@v4',
+                                            uses: {
+                                                __KIND: 'repository',
+                                                owner: 'actions',
+                                                repo: 'checkout',
+                                                ref: 'v4',
+                                            },
                                         },
                                     ],
                                 },
@@ -1749,7 +1747,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {
@@ -1762,7 +1760,12 @@ jobs:
                                     steps: [
                                         {
                                             __KIND: 'uses',
-                                            uses: 'actions/checkout@v4',
+                                            uses: {
+                                                __KIND: 'repository',
+                                                owner: 'actions',
+                                                repo: 'checkout',
+                                                ref: 'v4',
+                                            },
                                         },
                                     ],
                                 },
@@ -1783,7 +1786,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {},
@@ -1809,7 +1812,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {},
@@ -1835,7 +1838,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {},
@@ -1858,7 +1861,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4`
 
-                    assert.deepEqual(readWorkflowFromString(yaml), {
+                    assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
                             on: {},
                             jobs: {},
@@ -1887,7 +1890,7 @@ jobs:
         env:
           BUNK: DATA`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {},
@@ -1902,34 +1905,6 @@ jobs:
                         })
                     })
 
-                    it('.uses: string', () => {
-                        const yaml = `
-jobs:
-  some-job:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: eighty4/l3/action`
-
-                        assert.deepEqual(readWorkflowFromString(yaml), {
-                            workflow: {
-                                on: {},
-                                jobs: {
-                                    'some-job': {
-                                        __KIND: 'steps',
-                                        runsOn: 'ubuntu-latest',
-                                        steps: [
-                                            {
-                                                __KIND: 'uses',
-                                                uses: 'eighty4/l3/action',
-                                            },
-                                        ],
-                                    },
-                                },
-                            },
-                            schemaErrors: [],
-                        })
-                    })
-
                     it('.uses: !valid', () => {
                         const yaml = `
 jobs:
@@ -1938,7 +1913,7 @@ jobs:
       - uses:
           bunk: data`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {},
@@ -1950,6 +1925,192 @@ jobs:
                                     path: 'jobs.some-job.steps[0].uses',
                                 },
                             ],
+                        })
+                    })
+
+                    it('uses: docker action', () => {
+                        const yaml = `
+jobs:
+  some-job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker://ghcr.io/eighty4/cquill`
+
+                        assert.deepEqual(readWorkflowModel(yaml), {
+                            workflow: {
+                                on: {},
+                                jobs: {
+                                    'some-job': {
+                                        __KIND: 'steps',
+                                        runsOn: 'ubuntu-latest',
+                                        steps: [
+                                            {
+                                                __KIND: 'uses',
+                                                uses: {
+                                                    __KIND: 'docker',
+                                                    uri: 'docker://ghcr.io/eighty4/cquill',
+                                                },
+                                            },
+                                        ],
+                                    },
+                                },
+                            },
+                            schemaErrors: [],
+                        })
+                    })
+
+                    it('uses: filesystem action', () => {
+                        const yaml = `
+jobs:
+  some-job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/cicd`
+
+                        assert.deepEqual(readWorkflowModel(yaml), {
+                            workflow: {
+                                on: {},
+                                jobs: {
+                                    'some-job': {
+                                        __KIND: 'steps',
+                                        runsOn: 'ubuntu-latest',
+                                        steps: [
+                                            {
+                                                __KIND: 'uses',
+                                                uses: {
+                                                    __KIND: 'filesystem',
+                                                    path: './.github/actions/cicd',
+                                                },
+                                            },
+                                        ],
+                                    },
+                                },
+                            },
+                            schemaErrors: [],
+                        })
+                    })
+
+                    describe('uses: repository action', () => {
+                        it('.uses: repo !valid', () => {
+                            const yaml = `
+jobs:
+  some-job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: eighty4`
+
+                            assert.deepEqual(readWorkflowModel(yaml), {
+                                workflow: {
+                                    on: {},
+                                    jobs: {},
+                                },
+                                schemaErrors: [
+                                    {
+                                        message:
+                                            'Must be a resolvable GitHub Action',
+                                        object: 'step',
+                                        path: 'jobs.some-job.steps[0].uses',
+                                    },
+                                ],
+                            })
+                        })
+
+                        it('.uses: repo without ref or subdirectory', () => {
+                            const yaml = `
+jobs:
+  some-job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: eighty4/l3`
+
+                            assert.deepEqual(readWorkflowModel(yaml), {
+                                workflow: {
+                                    on: {},
+                                    jobs: {
+                                        'some-job': {
+                                            __KIND: 'steps',
+                                            runsOn: 'ubuntu-latest',
+                                            steps: [
+                                                {
+                                                    __KIND: 'uses',
+                                                    uses: {
+                                                        __KIND: 'repository',
+                                                        owner: 'eighty4',
+                                                        repo: 'l3',
+                                                    },
+                                                },
+                                            ],
+                                        },
+                                    },
+                                },
+                                schemaErrors: [],
+                            })
+                        })
+
+                        it('.uses: repo with subdirectory', () => {
+                            const yaml = `
+jobs:
+  some-job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: eighty4/l3/action`
+
+                            assert.deepEqual(readWorkflowModel(yaml), {
+                                workflow: {
+                                    on: {},
+                                    jobs: {
+                                        'some-job': {
+                                            __KIND: 'steps',
+                                            runsOn: 'ubuntu-latest',
+                                            steps: [
+                                                {
+                                                    __KIND: 'uses',
+                                                    uses: {
+                                                        __KIND: 'repository',
+                                                        owner: 'eighty4',
+                                                        repo: 'l3',
+                                                        subdirectory: 'action',
+                                                    },
+                                                },
+                                            ],
+                                        },
+                                    },
+                                },
+                                schemaErrors: [],
+                            })
+                        })
+
+                        it('.uses: repo with ref', () => {
+                            const yaml = `
+jobs:
+  some-job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: eighty4/l3@v2`
+
+                            assert.deepEqual(readWorkflowModel(yaml), {
+                                workflow: {
+                                    on: {},
+                                    jobs: {
+                                        'some-job': {
+                                            __KIND: 'steps',
+                                            runsOn: 'ubuntu-latest',
+                                            steps: [
+                                                {
+                                                    __KIND: 'uses',
+                                                    uses: {
+                                                        __KIND: 'repository',
+                                                        owner: 'eighty4',
+                                                        repo: 'l3',
+                                                        ref: 'v2',
+                                                    },
+                                                },
+                                            ],
+                                        },
+                                    },
+                                },
+                                schemaErrors: [],
+                            })
                         })
                     })
                 })
@@ -1965,7 +2126,7 @@ jobs:
         with:
           some-input: asdf`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {
@@ -1975,7 +2136,12 @@ jobs:
                                         steps: [
                                             {
                                                 __KIND: 'uses',
-                                                uses: 'eighty4/l3/action',
+                                                uses: {
+                                                    __KIND: 'repository',
+                                                    owner: 'eighty4',
+                                                    repo: 'l3',
+                                                    subdirectory: 'action',
+                                                },
                                                 with: {
                                                     'some-input': 'asdf',
                                                 },
@@ -1998,7 +2164,7 @@ jobs:
         with:
           some-input: true`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {
@@ -2008,7 +2174,12 @@ jobs:
                                         steps: [
                                             {
                                                 __KIND: 'uses',
-                                                uses: 'eighty4/l3/action',
+                                                uses: {
+                                                    __KIND: 'repository',
+                                                    owner: 'eighty4',
+                                                    repo: 'l3',
+                                                    subdirectory: 'action',
+                                                },
                                                 with: {
                                                     'some-input': true,
                                                 },
@@ -2031,7 +2202,7 @@ jobs:
         with:
           some-input: 42`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {
@@ -2041,7 +2212,12 @@ jobs:
                                         steps: [
                                             {
                                                 __KIND: 'uses',
-                                                uses: 'eighty4/l3/action',
+                                                uses: {
+                                                    __KIND: 'repository',
+                                                    owner: 'eighty4',
+                                                    repo: 'l3',
+                                                    subdirectory: 'action',
+                                                },
                                                 with: {
                                                     'some-input': 42,
                                                 },
@@ -2065,7 +2241,7 @@ jobs:
           some-input:
             bunk: data`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {},
@@ -2097,7 +2273,7 @@ jobs:
           NUM_VAL: 42
           BOO_VAL: true`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {
@@ -2133,7 +2309,7 @@ jobs:
           STR_VAL:
             NUM_VAL: 42`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {},
@@ -2158,7 +2334,7 @@ jobs:
     steps:
       - run: echo asdf`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {
@@ -2186,7 +2362,7 @@ jobs:
       - run:
           bunk: data`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {},
@@ -2214,7 +2390,7 @@ jobs:
       - run: ls
         id: asdf`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {
@@ -2244,7 +2420,7 @@ jobs:
       - run: ls
         id: -asdf`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {},
@@ -2270,7 +2446,7 @@ jobs:
         id:
           bunk: data`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {},
@@ -2297,7 +2473,7 @@ jobs:
       - if: inputs.run-step == 'true'
         run: echo asdf`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {
@@ -2327,7 +2503,7 @@ jobs:
       - if: true
         run: echo asdf`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {
@@ -2358,7 +2534,7 @@ jobs:
           jimmy: cracks corn
         run: echo bunk`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {},
@@ -2385,7 +2561,7 @@ jobs:
       - run: ls
         name: ${name}`
 
-                            assert.deepEqual(readWorkflowFromString(yaml), {
+                            assert.deepEqual(readWorkflowModel(yaml), {
                                 workflow: {
                                     on: {},
                                     jobs: {
@@ -2417,7 +2593,7 @@ jobs:
         name:
           bad: data`
 
-                        assert.deepEqual(readWorkflowFromString(yaml), {
+                        assert.deepEqual(readWorkflowModel(yaml), {
                             workflow: {
                                 on: {},
                                 jobs: {},

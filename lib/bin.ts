@@ -2,7 +2,11 @@
 
 import { readdir, stat } from 'node:fs/promises'
 import { basename, dirname, extname, join, resolve } from 'node:path'
-import { isFileNotFound, ProjectFileFetcher } from './fileFetcher.ts'
+import {
+    isFileNotFound,
+    ProjectFileFetcher,
+    RestFileFetcher,
+} from './fileFetcher.ts'
 import { GHWorkflowAnalyzer, GHWorkflowError } from './workflowAnalyzer.ts'
 
 const args: Array<string> = (() => {
@@ -96,8 +100,9 @@ function walkUpPathToProjectRoot(p: string): string {
 
 // given abs path to a project root and a workflow filename, validate
 async function validateProjectWorkflow(projectRoot: string, workflow: string) {
-    const fileFetcher = new ProjectFileFetcher(projectRoot)
-    const workflowAnalyzer = new GHWorkflowAnalyzer(fileFetcher)
+    const files = new ProjectFileFetcher(projectRoot)
+    const repoObjects = new RestFileFetcher()
+    const workflowAnalyzer = new GHWorkflowAnalyzer(files, repoObjects)
     try {
         await workflowAnalyzer.analyzeWorkflow('.github/workflows/' + workflow)
         console.log(greenCheckMark(), workflow, 'is valid')

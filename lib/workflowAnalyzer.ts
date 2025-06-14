@@ -1,11 +1,19 @@
-import { type FileFetcher, GHWorkflowFileNotFoundError } from './fileFetcher.ts'
+import {
+    type FileFetcher,
+    FileNotFoundError,
+    type RepoObjectFetcher,
+} from './fileFetcher.ts'
 import type { GHWorkflow } from './model.ts'
+import { readActionModel } from './readAction.ts'
 import {
     type GHWorkflowSchemaError,
-    readWorkflowFromString,
-} from './readModel.ts'
+    readWorkflowModel,
+} from './readWorkflow.ts'
 
-export type GHWorkflowErrorCode = 'FILE_NOT_FOUND' | 'WORKFLOW_SCHEMA'
+export type GHWorkflowErrorCode =
+    | 'FILE_NOT_FOUND'
+    | 'WORKFLOW_RUNTIME'
+    | 'WORKFLOW_SCHEMA'
 
 export class GHWorkflowError extends Error {
     code: GHWorkflowErrorCode
@@ -30,10 +38,12 @@ export class GHWorkflowError extends Error {
 
 export class GHWorkflowAnalyzer {
     #files: FileFetcher
+    #repoObjects: RepoObjectFetcher
     #workflows: Record<string, Promise<GHWorkflow>>
 
-    constructor(files: FileFetcher) {
+    constructor(files: FileFetcher, repoObjects: RepoObjectFetcher) {
         this.#files = files
+        this.#repoObjects = repoObjects
         this.#workflows = {}
     }
 
@@ -77,6 +87,38 @@ export class GHWorkflowAnalyzer {
                 }
             }
         }
+        if (job.__KIND === 'steps') {
+            for (const [stepIndex, step] of Object.entries(job.steps)) {
+                if (step.__KIND === 'uses') {
+                    if (step.uses.__KIND === 'repository') {
+                        const action = readActionModel(
+                            await this.#repoObjects.fetchActionMetadata(
+                                step.uses.owner,
+                                step.uses.repo,
+                                step.uses.ref,
+                                step.uses.subdirectory,
+                            ),
+                        )
+                        if (action.inputs) {
+                            for (const [inputId, input] of Object.entries(
+                                action.inputs,
+                            )) {
+                                if (
+                                    input.required &&
+                                    typeof input.default === 'undefined'
+                                ) {
+                                    if (!step.with || !(inputId in step.with)) {
+                                        throw new Error(
+                                            `input \`${inputId}\` is required to call action \`${step.uses.owner}/${step.uses.repo}${step.uses.subdirectory ? '/' + step.uses.subdirectory : ''}${step.uses.ref ? '@' + step.uses.ref : ''}\` from \`${step.id || step.name || `step[${stepIndex}]`}\` in job \`${jobId}\``,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     async #getWorkflow(
@@ -95,7 +137,7 @@ export class GHWorkflowAnalyzer {
     ): Promise<GHWorkflow> {
         try {
             const wfYaml = await this.#files.fetchFile(p)
-            const { workflow, schemaErrors } = readWorkflowFromString(wfYaml)
+            const { workflow, schemaErrors } = readWorkflowModel(wfYaml)
             if (schemaErrors.length) {
                 throw new GHWorkflowError(
                     'WORKFLOW_SCHEMA',
@@ -108,7 +150,7 @@ export class GHWorkflowAnalyzer {
                 return workflow
             }
         } catch (e: unknown) {
-            if (e instanceof GHWorkflowFileNotFoundError) {
+            if (e instanceof FileNotFoundError) {
                 throw new GHWorkflowError(
                     'FILE_NOT_FOUND',
                     p,

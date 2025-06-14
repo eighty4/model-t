@@ -1,3 +1,54 @@
+export type GHAction = {
+    name: string
+    description: string
+    author?: string
+    branding?: GHActionBranding
+    runs: GHActionRuns
+    inputs?: Record<string, GHActionInput>
+    outputs?: Record<string, GHActionOutput>
+}
+
+export type GHActionBranding = {
+    color: string
+    icon: string
+}
+
+export type GHActionRuns =
+    | {
+          using: 'composite'
+          steps: Array<any>
+      }
+    | {
+          using: 'docker'
+          image: string
+          args?: Array<string>
+          env?: Record<string, string>
+          preEntrypoint?: string
+          preIf?: string
+          entrypoint?: string
+          postEntrypoint?: string
+          postIf?: string
+      }
+    | {
+          using: 'node20'
+          pre?: string
+          preIf?: string
+          main: string
+          post?: string
+          postIf?: string
+      }
+
+export type GHActionInput = {
+    description: string
+    required?: boolean
+    default?: string
+    deprecationMessage?: string
+}
+
+export type GHActionOutput = {
+    description?: string
+}
+
 // export type GHPermissionAccessLevel = 'read' | 'write' | 'none'
 // const GHWorkflowImageValues = ['ubuntu-latest'] as const
 // export type GHWorkflowImage = (typeof GHWorkflowImageValues)[number]
@@ -151,6 +202,26 @@ export type GHWorkflowStepRunsShell = GHWorkflowStepCommonProps & {
 
 export type GHWorkflowStepUsesAction = GHWorkflowStepCommonProps & {
     __KIND: 'uses'
-    uses: string
+    uses: GHWorkflowActionSpecifier
     with?: Record<string, boolean | number | string>
 }
+
+export type GHWorkflowActionSpecifier =
+    | {
+          // action ran from a container registry
+          __KIND: 'docker'
+          uri: string
+      }
+    | {
+          // action resolved by filesystem path
+          __KIND: 'filesystem'
+          path: string
+      }
+    | {
+          // action reoslved from a public repository
+          __KIND: 'repository'
+          owner: string
+          repo: string
+          subdirectory?: string
+          ref?: string
+      }
