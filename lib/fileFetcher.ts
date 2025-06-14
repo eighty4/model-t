@@ -1,6 +1,15 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+export function isFileNotFound(e: unknown): boolean {
+    return (
+        e !== null &&
+        typeof e === 'object' &&
+        'code' in e &&
+        e.code === 'ENOENT'
+    )
+}
+
 export class GHWorkflowFileNotFoundError extends Error {
     path: string
     constructor(path: string) {
@@ -30,14 +39,9 @@ export class ProjectFileFetcher implements FileFetcher {
 
     async fetchFile(p: string): Promise<string> {
         try {
-            return readFile(join(this.#projectRoot, p), 'utf-8')
+            return await readFile(join(this.#projectRoot, p), 'utf-8')
         } catch (e: unknown) {
-            if (
-                e !== null &&
-                typeof e === 'object' &&
-                'code' in e &&
-                e.code === 'ENOENT'
-            ) {
+            if (isFileNotFound(e)) {
                 throw new GHWorkflowFileNotFoundError(p)
             } else {
                 throw e

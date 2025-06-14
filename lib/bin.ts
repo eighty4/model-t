@@ -2,7 +2,7 @@
 
 import { readdir, stat } from 'node:fs/promises'
 import { basename, dirname, extname, join, resolve } from 'node:path'
-import { ProjectFileFetcher } from './fileFetcher.ts'
+import { isFileNotFound, ProjectFileFetcher } from './fileFetcher.ts'
 import { GHWorkflowAnalyzer, GHWorkflowError } from './workflowAnalyzer.ts'
 
 const args: Array<string> = (() => {
@@ -43,12 +43,7 @@ async function resolveStat(p: string): Promise<'absent' | 'dir' | 'file'> {
     try {
         return (await stat(p)).isDirectory() ? 'dir' : 'file'
     } catch (e: unknown) {
-        if (
-            typeof e === 'object' &&
-            e !== null &&
-            'code' in e &&
-            e.code === 'ENOENT'
-        ) {
+        if (isFileNotFound(e)) {
             return 'absent'
         } else {
             throw e
