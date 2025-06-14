@@ -1,0 +1,1 @@
+[31m✗[0m missing_input.yml: input `must_set` is required to call action `eighty4/model-t/fixtures/actions/required-input@main` from `step[0]` in job `bad-bad`

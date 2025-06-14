@@ -108,23 +108,19 @@ async function validateProjectWorkflow(projectRoot: string, workflow: string) {
         console.log(greenCheckMark(), workflow, 'is valid')
     } catch (e: unknown) {
         if (e instanceof GHWorkflowError) {
-            workflowErrorExit(e)
+            workflowErrorExit(e, workflow)
         } else if (e instanceof Error) {
-            console.log(redBooBoo(), workflow, 'error:', e.message)
+            console.log(`${redBooBoo()} ${workflow}: ${e.message}`)
         }
     }
 }
 
-function workflowErrorExit(e: GHWorkflowError) {
-    const output = [redBooBoo()]
+function workflowErrorExit(e: GHWorkflowError, validating: string) {
+    const output = [`${redBooBoo()} ${validating}:`]
     if (e.code === 'FILE_NOT_FOUND') {
-        output.push('could not find workflow')
+        output.push(`could not find workflow \`${e.workflow}\``)
     } else if (e.code === 'WORKFLOW_SCHEMA') {
-        output.push('schema errors in workflow')
-    }
-    output.push(`\`${e.workflow}\``)
-    if (e.referencedBy !== null) {
-        output.push(`referenced by \`${e.referencedBy}\``)
+        output.push(`schema errors in workflow \`${e.workflow}\``)
     }
     console.log(...output)
     if (e.schemaErrors?.length) {

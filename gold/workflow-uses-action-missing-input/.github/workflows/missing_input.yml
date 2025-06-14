@@ -1,0 +1,8 @@
+on:
+  push:
+
+jobs:
+  bad-bad:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: eighty4/model-t/fixtures/actions/required-input@main

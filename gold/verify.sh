@@ -6,6 +6,7 @@ pnpm build
 _error=0
 
 for _fixture in */; do
+  _fixture=$(echo $_fixture | sed 's/.$//')
   _read=$(cat "$_fixture/output.au")
   _run=$(cd $_fixture && node ../../lib_js/bin.js .)
   if [ "$_read" = "$_run" ]; then
