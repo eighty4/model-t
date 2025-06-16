@@ -4,6 +4,10 @@
 >
 > - Henry Ford'
 
+The npm package `@eighty4/model-t` ships a CLI and APIs for validating GitHub
+Actions workflows. Workflows are validated for schema and runtime behavior and
+can be easily integrated into git hooks for immediate feedback.
+
 ## Validating workflows
 
 ```bash
