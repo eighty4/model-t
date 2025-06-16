@@ -1,17 +1,17 @@
 import assert from 'node:assert/strict'
-import { describe, it } from 'node:test'
+import { beforeEach, describe, it } from 'node:test'
 import {
     type FileFetcher,
     GitHubApiNotFound,
     RepoObjectFetcher,
 } from './fileFetcher.ts'
-import { GHWorkflowAnalyzer, GHWorkflowError } from './workflowAnalyzer.ts'
+import { FileReader } from './fileReader.ts'
+import { GHWorkflowAnalyzer } from './workflowAnalyzer.ts'
+import { GHWorkflowError } from './workflowError.ts'
 
 class TestFileFetcher implements FileFetcher {
-    files: Record<string, string>
-    constructor(files: Record<string, string>) {
-        this.files = files
-    }
+    files: Record<string, string> = {}
+
     fetchFile(p: string): Promise<string> {
         const file = this.files[p.startsWith('./') ? p.substring(2) : p]
         if (!file) {
@@ -22,13 +22,8 @@ class TestFileFetcher implements FileFetcher {
 }
 
 class TestRepoObjectFetcher extends RepoObjectFetcher {
-    objects: Record<string, Record<string, Record<string, string>>>
-    constructor(
-        objects: Record<string, Record<string, Record<string, string>>>,
-    ) {
-        super()
-        this.objects = objects
-    }
+    objects: Record<string, string> = {}
+
     fetchFile(
         owner: string,
         repo: string,
@@ -36,7 +31,7 @@ class TestRepoObjectFetcher extends RepoObjectFetcher {
         p: string,
     ): Promise<string> {
         try {
-            return Promise.resolve(this.objects[owner][repo][ref][p])
+            return Promise.resolve(this.objects[`${owner}${repo}${ref}${p}`])
         } catch (_e) {
             throw new GitHubApiNotFound()
         }
@@ -44,17 +39,47 @@ class TestRepoObjectFetcher extends RepoObjectFetcher {
 }
 
 describe('analyze workflow', () => {
+    let files: TestFileFetcher
+    let repoObjects: TestRepoObjectFetcher
+    let reader: FileReader
+    let analyzer: GHWorkflowAnalyzer
+
+    beforeEach(() => {
+        files = new TestFileFetcher()
+        repoObjects = new TestRepoObjectFetcher()
+        reader = new FileReader(files, repoObjects)
+        analyzer = new GHWorkflowAnalyzer(reader)
+    })
+
+    function addFile(p: string, content: string) {
+        files.files[p] = content
+    }
+
+    function addRepoObject(
+        owner: string,
+        repo: string,
+        ref: string,
+        p: string,
+        content: string,
+    ) {
+        repoObjects.objects[`${owner}${repo}${ref}${p}`] = content
+    }
+
     describe('job calls a project local workflow', () => {
         it('error `on.workflow_call` !present', async () => {
-            const files = new TestFileFetcher({
-                '.github/workflows/release.yml': `
+            addFile(
+                '.github/workflows/release.yml',
+                `
 on:
   workflow_dispatch:
 jobs:
   verify:
     uses: ./.github/workflows/verify.yml
 `,
-                '.github/workflows/verify.yml': `
+            )
+            addFile(
+                '.github/workflows/verify.yml',
+                `
 on:
   pull_request:
   push:
@@ -64,29 +89,35 @@ jobs:
     steps:
       - run: echo verified
 `,
-            })
+            )
 
-            const analyzer = new GHWorkflowAnalyzer(files)
             await assert.rejects(
                 () => analyzer.analyzeWorkflow('.github/workflows/release.yml'),
                 e => {
                     assert.equal(e.code, 'WORKFLOW_RUNTIME')
-                    assert.equal(e.message, `job \`verify\` using a workflow requires \`on.workflow_call:\` in the called workflow`)
+                    assert.equal(
+                        e.message,
+                        `job \`verify\` using a workflow requires \`on.workflow_call:\` in the called workflow`,
+                    )
                     return true
-                }
+                },
             )
         })
 
         it('error `on.workflow_call.inputs` required && !with', async () => {
-            const files = new TestFileFetcher({
-                '.github/workflows/release.yml': `
+            addFile(
+                '.github/workflows/release.yml',
+                `
 on:
   workflow_dispatch:
 jobs:
   verify:
     uses: ./.github/workflows/verify.yml
 `,
-                '.github/workflows/verify.yml': `
+            )
+            addFile(
+                '.github/workflows/verify.yml',
+                `
 on:
   workflow_call:
     inputs:
@@ -99,21 +130,25 @@ jobs:
     steps:
       - run: echo verified
 `,
-            })
-            const analyzer = new GHWorkflowAnalyzer(files)
+            )
+
             await assert.rejects(
                 () => analyzer.analyzeWorkflow('.github/workflows/release.yml'),
                 e => {
                     assert.equal(e.code, 'WORKFLOW_RUNTIME')
-                    assert.equal(e.message, `input \`run_tests\` is required to call workflow from job \`verify\``)
+                    assert.equal(
+                        e.message,
+                        `input \`run_tests\` is required to call workflow from job \`verify\``,
+                    )
                     return true
-                }
+                },
             )
         })
 
         it('error `on.workflow_call.inputs` required boolean && with !boolean', async () => {
-            const files = new TestFileFetcher({
-                '.github/workflows/release.yml': `
+            addFile(
+                '.github/workflows/release.yml',
+                `
 on:
   workflow_dispatch:
 jobs:
@@ -122,7 +157,10 @@ jobs:
     with:
       run_tests: frequent flyer miles
 `,
-                '.github/workflows/verify.yml': `
+            )
+            addFile(
+                '.github/workflows/verify.yml',
+                `
 on:
   workflow_call:
     inputs:
@@ -135,21 +173,25 @@ jobs:
     steps:
       - run: echo verified
 `,
-            })
-            const analyzer = new GHWorkflowAnalyzer(files)
+            )
+
             await assert.rejects(
                 () => analyzer.analyzeWorkflow('.github/workflows/release.yml'),
                 e => {
                     assert.equal(e.code, 'WORKFLOW_RUNTIME')
-                    assert.equal(e.message, `input \`run_tests\` is a \`boolean\` input and job \`verify\` cannot call workflow with a \`string\` value`)
+                    assert.equal(
+                        e.message,
+                        `input \`run_tests\` is a \`boolean\` input and job \`verify\` cannot call workflow with a \`string\` value`,
+                    )
                     return true
-                }
+                },
             )
         })
 
         it('ok `on.workflow_call.inputs` required && with', async () => {
-            const files = new TestFileFetcher({
-                '.github/workflows/release.yml': `
+            addFile(
+                '.github/workflows/release.yml',
+                `
 on:
   workflow_dispatch:
 jobs:
@@ -158,7 +200,10 @@ jobs:
     with:
       run_tests: true
 `,
-                '.github/workflows/verify.yml': `
+            )
+            addFile(
+                '.github/workflows/verify.yml',
+                `
 on:
   workflow_call:
     inputs:
@@ -171,22 +216,25 @@ jobs:
     steps:
       - run: echo verified
 `,
-            })
+            )
 
-            const analyzer = new GHWorkflowAnalyzer(files)
             await analyzer.analyzeWorkflow('.github/workflows/release.yml')
         })
 
         it('ok `on.workflow_call.inputs` required && default', async () => {
-            const files = new TestFileFetcher({
-                '.github/workflows/release.yml': `
+            addFile(
+                '.github/workflows/release.yml',
+                `
 on:
   workflow_dispatch:
 jobs:
   verify:
     uses: ./.github/workflows/verify.yml
 `,
-                '.github/workflows/verify.yml': `
+            )
+            addFile(
+                '.github/workflows/verify.yml',
+                `
 on:
   workflow_call:
     inputs:
@@ -200,17 +248,16 @@ jobs:
     steps:
       - run: echo verified
 `,
-            })
-
-            const analyzer = new GHWorkflowAnalyzer(files)
+            )
             await analyzer.analyzeWorkflow('.github/workflows/release.yml')
         })
     })
 
     describe('step calls a repository hosted action', () => {
         it('error action input required && !with', async () => {
-            const files = new TestFileFetcher({
-                '.github/workflows/release.yml': `
+            addFile(
+                '.github/workflows/release.yml',
+                `
 on:
   push:
 jobs:
@@ -219,35 +266,36 @@ jobs:
     steps:
       - uses: eighty4/l3/setup@v3
 `,
-            })
-            const objects = new TestRepoObjectFetcher({
-                eighty4: {
-                    l3: {
-                        v3: {
-                            'setup/action.yml': `
+            )
+            addRepoObject(
+                'eighty4',
+                'l3',
+                'v3',
+                'setup/action.yml',
+                `
 inputs:
   must_set:
     description: mandatory
     required: true
 `,
-                        },
-                    },
-                },
-            })
-            const analyzer = new GHWorkflowAnalyzer(files, objects)
+            )
             await assert.rejects(
                 () => analyzer.analyzeWorkflow('.github/workflows/release.yml'),
                 e => {
                     assert.equal(e.code, 'WORKFLOW_RUNTIME')
-                    assert.equal(e.message, 'input `must_set` is required to call action `eighty4/l3/setup@v3` from `step[0]` in job `verify`')
+                    assert.equal(
+                        e.message,
+                        'input `must_set` is required to call action `eighty4/l3/setup@v3` from `step[0]` in job `verify`',
+                    )
                     return true
-                }
+                },
             )
         })
 
         it('ok action input required && with', async () => {
-            const files = new TestFileFetcher({
-                '.github/workflows/release.yml': `
+            addFile(
+                '.github/workflows/release.yml',
+                `
 on:
   workflow_dispatch:
 jobs:
@@ -258,28 +306,26 @@ jobs:
         with:
           must_set: congrats
 `,
-            })
-            const objects = new TestRepoObjectFetcher({
-                eighty4: {
-                    l3: {
-                        v3: {
-                            'setup/action.yml': `
+            )
+            addRepoObject(
+                'eighty4',
+                'l3',
+                'v3',
+                'setup/action.yml',
+                `
 inputs:
   must_set:
     description: mandatory
     required: true
 `,
-                        },
-                    },
-                },
-            })
-            const analyzer = new GHWorkflowAnalyzer(files, objects)
+            )
             await analyzer.analyzeWorkflow('.github/workflows/release.yml')
         })
 
         it('ok action input required && default', async () => {
-            const files = new TestFileFetcher({
-                '.github/workflows/release.yml': `
+            addFile(
+                '.github/workflows/release.yml',
+                `
 on:
   workflow_dispatch:
 jobs:
@@ -288,23 +334,20 @@ jobs:
     steps:
       - uses: eighty4/l3/setup@v3
 `,
-            })
-            const objects = new TestRepoObjectFetcher({
-                eighty4: {
-                    l3: {
-                        v3: {
-                            'setup/action.yml': `
+            )
+            addRepoObject(
+                'eighty4',
+                'l3',
+                'v3',
+                'setup/action.yml',
+                `
 inputs:
   must_set:
     description: mandatory
     required: true
     default: congrats
 `,
-                        },
-                    },
-                },
-            })
-            const analyzer = new GHWorkflowAnalyzer(files, objects)
+            )
             await analyzer.analyzeWorkflow('.github/workflows/release.yml')
         })
     })

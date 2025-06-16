@@ -7,7 +7,9 @@ import {
     ProjectFileFetcher,
     RestFileFetcher,
 } from './fileFetcher.ts'
-import { GHWorkflowAnalyzer, GHWorkflowError } from './workflowAnalyzer.ts'
+import { FileReader } from './fileReader.ts'
+import { GHWorkflowAnalyzer } from './workflowAnalyzer.ts'
+import { GHWorkflowError } from './workflowError.ts'
 
 const args: Array<string> = (() => {
     const args = [...process.argv]
@@ -72,8 +74,9 @@ async function handleDirPath(p: string) {
     if (!workflows.length) {
         errorExit('no workflows in .github/workflows directory')
     }
+    const fileReader = createFileReader(projectRoot)
     for (const workflow of workflows) {
-        await validateProjectWorkflow(projectRoot, workflow)
+        await validateProjectWorkflow(fileReader, workflow)
     }
 }
 
@@ -83,7 +86,8 @@ async function handleFilePath(p: string) {
         errorExit('path is not a YAML file')
     }
     const projectRoot = walkUpPathToProjectRoot(p)
-    await validateProjectWorkflow(projectRoot, basename(p))
+    const fileReader = createFileReader(projectRoot)
+    await validateProjectWorkflow(fileReader, basename(p))
 }
 
 // returns project root or errors if p is not a file in .github/workflows
@@ -98,11 +102,18 @@ function walkUpPathToProjectRoot(p: string): string {
     errorExit('path is not a workflow in a .github/workflows directory')
 }
 
-// given abs path to a project root and a workflow filename, validate
-async function validateProjectWorkflow(projectRoot: string, workflow: string) {
+function createFileReader(projectRoot: string): FileReader {
     const files = new ProjectFileFetcher(projectRoot)
     const repoObjects = new RestFileFetcher()
-    const workflowAnalyzer = new GHWorkflowAnalyzer(files, repoObjects)
+    return new FileReader(files, repoObjects)
+}
+
+// given abs path to a project root and a workflow filename, validate
+async function validateProjectWorkflow(
+    fileReader: FileReader,
+    workflow: string,
+) {
+    const workflowAnalyzer = new GHWorkflowAnalyzer(fileReader)
     try {
         await workflowAnalyzer.analyzeWorkflow('.github/workflows/' + workflow)
         console.log(greenCheckMark(), workflow, 'is valid')

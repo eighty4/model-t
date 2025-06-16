@@ -1,0 +1,11 @@
+on:
+  workflow_call:
+    inputs:
+      who_bad_mama_jama:
+        type: bad mama jama
+
+jobs:
+  asdf:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo asdf

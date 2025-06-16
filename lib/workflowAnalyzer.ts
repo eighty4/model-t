@@ -1,50 +1,6 @@
-import {
-    type FileFetcher,
-    FileNotFoundError,
-    GitHubApiNotFound,
-    NetworkError,
-    type RepoObjectFetcher,
-} from './fileFetcher.ts'
+import type { FileReader } from './fileReader.ts'
 import type { GHAction, GHWorkflow } from './model.ts'
-import { type GHActionSchemaError, readActionModel } from './readAction.ts'
-import {
-    type GHWorkflowSchemaError,
-    readWorkflowModel,
-} from './readWorkflow.ts'
-
-export type GHWorkflowErrorCode =
-    | 'ACTION_NOT_FOUND'
-    | 'ACTION_SCHEMA'
-    | 'WORKFLOW_NOT_FOUND'
-    | 'WORKFLOW_RUNTIME'
-    | 'WORKFLOW_SCHEMA'
-
-export class GHWorkflowError extends Error {
-    code: GHWorkflowErrorCode
-    workflow: string
-    action: string | null
-    referencedBy: string | null
-    schemaErrors: Array<GHActionSchemaError | GHWorkflowSchemaError> | null
-
-    constructor(
-        code: GHWorkflowErrorCode,
-        workflow: string,
-        metadata: {
-            action?: string
-            message?: string
-            referencedBy?: string
-            schemaErrors?: Array<GHActionSchemaError | GHWorkflowSchemaError>
-        },
-    ) {
-        super(metadata?.message || code)
-        this.name = this.constructor.name
-        this.code = code
-        this.workflow = workflow
-        this.action = metadata.action || null
-        this.referencedBy = metadata.referencedBy || null
-        this.schemaErrors = metadata.schemaErrors || null
-    }
-}
+import { GHWorkflowError } from './workflowError.ts'
 
 class RuntimeError extends Error {
     constructor(message: string) {
@@ -54,18 +10,14 @@ class RuntimeError extends Error {
 }
 
 export class GHWorkflowAnalyzer {
-    #files: FileFetcher
-    #repoObjects: RepoObjectFetcher
-    #workflows: Record<string, Promise<GHWorkflow>>
+    #reader: FileReader
 
-    constructor(files: FileFetcher, repoObjects: RepoObjectFetcher) {
-        this.#files = files
-        this.#repoObjects = repoObjects
-        this.#workflows = {}
+    constructor(reader: FileReader) {
+        this.#reader = reader
     }
 
     async analyzeWorkflow(wfPath: string) {
-        const workflow = await this.#getWorkflow(wfPath)
+        const workflow = await this.#reader.workflowFromFilesystem(wfPath)
         await Promise.all(
             Object.keys(workflow.jobs).map(async jobId => {
                 try {
@@ -87,8 +39,27 @@ export class GHWorkflowAnalyzer {
 
     async #analyzeJob(workflow: GHWorkflow, jobId: string): Promise<void> {
         const job = workflow.jobs[jobId]
-        if (job.__KIND === 'uses' && job.uses.startsWith('./')) {
-            const usesWorkflow = await this.#getWorkflow(job.uses, workflow)
+        if (job.__KIND === 'uses') {
+            let usesWorkflow: GHWorkflow
+            switch (job.uses.__KIND) {
+                case 'filesystem':
+                    usesWorkflow = await this.#reader.workflowFromFilesystem(
+                        job.uses.path,
+                        workflow,
+                    )
+                    break
+                case 'repository':
+                    usesWorkflow = await this.#reader.workflowFromRepository(
+                        job.uses,
+                        workflow,
+                    )
+                    break
+                default:
+                    throw new TypeError(
+                        'job.uses.__KIND=' + (job.uses as any).__KIND,
+                    )
+            }
+
             const onCall = usesWorkflow.on.workflow_call
             if (!onCall) {
                 throw new RuntimeError(
@@ -115,15 +86,15 @@ export class GHWorkflowAnalyzer {
                     }
                 }
             }
-        }
-        if (job.__KIND === 'steps') {
+        } else if (job.__KIND === 'steps') {
             for (const [stepIndex, step] of Object.entries(job.steps)) {
                 if (step.__KIND === 'uses') {
                     if (step.uses.__KIND === 'repository') {
-                        const action = await this.#readAction(
-                            step.uses,
-                            workflow,
-                        )
+                        const action: GHAction =
+                            await this.#reader.actionFromRepository(
+                                step.uses,
+                                workflow,
+                            )
                         if (action.inputs) {
                             for (const [inputId, input] of Object.entries(
                                 action.inputs,
@@ -142,86 +113,6 @@ export class GHWorkflowAnalyzer {
                         }
                     }
                 }
-            }
-        }
-    }
-
-    async #getWorkflow(
-        p: string,
-        referencedBy?: GHWorkflow,
-    ): Promise<GHWorkflow> {
-        return (
-            this.#workflows[p] ||
-            (this.#workflows[p] = this.#readWorkflow(p, referencedBy))
-        )
-    }
-
-    async #readAction(
-        actionSpec: {
-            owner: string
-            repo: string
-            ref: string
-            specifier: string
-            subdirectory?: string
-        },
-        referencedBy: GHWorkflow,
-    ): Promise<GHAction> {
-        try {
-            const { action, schemaErrors } = readActionModel(
-                await this.#repoObjects.fetchActionMetadata(
-                    actionSpec.owner,
-                    actionSpec.repo,
-                    actionSpec.ref,
-                    actionSpec.subdirectory,
-                ),
-            )
-            if (schemaErrors.length) {
-                throw new GHWorkflowError(
-                    'ACTION_SCHEMA',
-                    referencedBy.__PATH!,
-                    { action: actionSpec.specifier, schemaErrors },
-                )
-            } else {
-                return action
-            }
-        } catch (e) {
-            // todo handle NetworkError by validating locally and skipping
-            //  validations of remote resources
-            if (e instanceof GitHubApiNotFound || e instanceof NetworkError) {
-                throw new GHWorkflowError(
-                    'ACTION_NOT_FOUND',
-                    referencedBy.__PATH!,
-                    { action: actionSpec.specifier },
-                )
-            } else {
-                throw e
-            }
-        }
-    }
-
-    async #readWorkflow(
-        p: string,
-        referencedBy?: GHWorkflow,
-    ): Promise<GHWorkflow> {
-        try {
-            const wfYaml = await this.#files.fetchFile(p)
-            const { workflow, schemaErrors } = readWorkflowModel(wfYaml)
-            if (schemaErrors.length) {
-                throw new GHWorkflowError('WORKFLOW_SCHEMA', p, {
-                    referencedBy: referencedBy?.__PATH,
-                    schemaErrors,
-                })
-            } else {
-                workflow.__PATH = p
-                return workflow
-            }
-        } catch (e: unknown) {
-            if (e instanceof FileNotFoundError) {
-                throw new GHWorkflowError('WORKFLOW_NOT_FOUND', p, {
-                    referencedBy: referencedBy?.__PATH,
-                })
-            } else {
-                throw e
             }
         }
     }

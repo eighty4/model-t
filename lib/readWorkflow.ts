@@ -2,6 +2,7 @@ import type {
     GHWorkflow,
     GHWorkflowActionSpecifier,
     GHWorkflowCallInput,
+    GHWorkflowCallSpecifier,
     GHWorkflowDispatchInput,
     GHWorkflowEvent,
     GHWorkflowInputBoolean,
@@ -37,6 +38,7 @@ import {
     isStringLike,
     readYaml,
 } from './readingFns.ts'
+import type { GHWorkflowSchemaError } from './workflowError.ts'
 
 const jobAndStepIdRegex = /^[_a-z]{1}[_\-a-z\d]+$/
 
@@ -52,12 +54,6 @@ class SchemaError {
     constructor(schemaError: GHWorkflowSchemaError) {
         this.schemaError = schemaError
     }
-}
-
-export type GHWorkflowSchemaError = {
-    object: 'workflow' | 'event' | 'input' | 'job' | 'step'
-    path: string
-    message: string
 }
 
 export type GHWorkflowReadResult = {
@@ -690,16 +686,7 @@ function collectJobs(
             } else if ('uses' in jobYaml) {
                 const usesJob = job as Partial<GHWorkflowJobUsesWorkflow>
                 usesJob.__KIND = 'uses'
-                if (isString(jobYaml.uses)) {
-                    usesJob.uses = jobYaml.uses
-                } else {
-                    errors.push({
-                        object: 'job',
-                        message: '`uses` must be a string',
-                        path: `jobs.${jobId}.uses`,
-                    })
-                    continue
-                }
+                usesJob.uses = parseJobUsesWorkflowValue(jobYaml.uses, jobId)
                 if ('with' in jobYaml) {
                     if (isMapOfStringLikes(jobYaml.with)) {
                         usesJob.with = jobYaml.with
@@ -776,6 +763,59 @@ function collectJobs(
     return jobs
 }
 
+function parseJobUsesWorkflowValue(
+    v: unknown,
+    jobId: string,
+): GHWorkflowCallSpecifier {
+    if (!isString(v)) {
+        throw new SchemaError({
+            message: '`uses` must be a string',
+            object: 'job',
+            path: `jobs.${jobId}.uses`,
+        })
+    }
+    if (/^\.?\.\//.test(v)) {
+        return {
+            __KIND: 'filesystem',
+            path: v,
+        }
+    }
+    const workflow: Partial<GHWorkflowCallSpecifier> = {
+        __KIND: 'repository',
+    }
+    const splitOnRef = v.split('@', 2)
+    const splitPaths = splitOnRef[0].split('/')
+    console.log('wtf', splitPaths)
+    if (
+        splitPaths.length !== 5 ||
+        splitPaths[2] !== '.github' ||
+        splitPaths[3] !== 'workflows' ||
+        !/ya?ml$/.test(splitPaths[4])
+    ) {
+        throw new SchemaError({
+            message:
+                'Must be a resolvable GitHub workflow YAML file in this repository with `./.github/workflows` or an external repository with `owner/name/.github/workflows` as a prefix',
+            object: 'job',
+            path: `jobs.${jobId}.uses`,
+        })
+    }
+    if (splitOnRef.length === 1) {
+        throw new SchemaError({
+            message: `Must specify GitHub workflow ref in format \`${splitOnRef[0]}@{ref}\``,
+            object: 'job',
+            path: `jobs.${jobId}.uses`,
+        })
+    } else {
+        // todo regex validate ref
+        workflow.ref = splitOnRef[1]
+    }
+    workflow.owner = splitPaths[0]
+    workflow.repo = splitPaths[1]
+    workflow.filename = splitPaths[4]
+    workflow.specifier = v
+    return workflow as GHWorkflowCallSpecifier
+}
+
 function collectSteps(
     jobId: string,
     stepsYaml: Array<Record<string, unknown>>,
@@ -844,7 +884,7 @@ function collectSteps(
         } else if ('uses' in stepYaml) {
             const usesStep = step as Partial<GHWorkflowStepUsesAction>
             usesStep.__KIND = 'uses'
-            usesStep.uses = parseUsesActionValue(stepYaml.uses, jobId, i)
+            usesStep.uses = parseStepUsesActionValue(stepYaml.uses, jobId, i)
             if ('with' in stepYaml) {
                 if (isMapOfStringLikes(stepYaml.with)) {
                     usesStep.with = stepYaml.with
@@ -875,7 +915,7 @@ function collectSteps(
     return steps
 }
 
-function parseUsesActionValue(
+function parseStepUsesActionValue(
     v: unknown,
     jobId: string,
     stepIndex: number,

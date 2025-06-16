@@ -6,11 +6,7 @@ import {
     isStringLike,
     readYaml,
 } from './readingFns.ts'
-
-export type GHActionSchemaError = {
-    message: string
-    path: string
-}
+import type { GHActionSchemaError } from './workflowError.ts'
 
 export type GHActionReadResult = {
     action: GHAction

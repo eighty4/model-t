@@ -27,7 +27,10 @@ jobs:
                     jobs: {
                         'some-job': {
                             __KIND: 'uses',
-                            uses: './.github/workflows/verify.yml',
+                            uses: {
+                                __KIND: 'filesystem',
+                                path: './.github/workflows/verify.yml',
+                            },
                         },
                     },
                     on: {
@@ -56,7 +59,10 @@ jobs:
                     jobs: {
                         'some-job': {
                             __KIND: 'uses',
-                            uses: './.github/workflows/verify.yml',
+                            uses: {
+                                __KIND: 'filesystem',
+                                path: './.github/workflows/verify.yml',
+                            },
                         },
                     },
                 },
@@ -86,7 +92,10 @@ jobs:
                         jobs: {
                             'some-job': {
                                 __KIND: 'uses',
-                                uses: './.github/workflows/verify.yml',
+                                uses: {
+                                    __KIND: 'filesystem',
+                                    path: './.github/workflows/verify.yml',
+                                },
                             },
                         },
                     },
@@ -124,7 +133,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                             },
@@ -159,7 +171,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                             },
@@ -197,7 +212,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                             },
@@ -233,7 +251,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                             },
@@ -265,7 +286,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -304,7 +328,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -345,7 +372,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -382,7 +412,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -418,7 +451,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -458,7 +494,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -495,7 +534,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -531,7 +573,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -571,7 +616,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -608,7 +656,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -645,7 +696,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -718,7 +772,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -756,7 +813,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -794,7 +854,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -834,7 +897,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -875,7 +941,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -915,7 +984,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -955,7 +1027,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -992,7 +1067,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -1029,7 +1107,10 @@ jobs:
                                 jobs: {
                                     'some-job': {
                                         __KIND: 'uses',
-                                        uses: './.github/workflows/verify.yml',
+                                        uses: {
+                                            __KIND: 'filesystem',
+                                            path: './.github/workflows/verify.yml',
+                                        },
                                     },
                                 },
                                 on: {
@@ -1216,7 +1297,10 @@ jobs:
                             'some-job': {
                                 __KIND: 'uses',
                                 needs: ['verify'],
-                                uses: './.github/workflows/another_workflow.yml',
+                                uses: {
+                                    __KIND: 'filesystem',
+                                    path: './.github/workflows/another_workflow.yml',
+                                },
                             },
                         },
                     },
@@ -1229,7 +1313,7 @@ jobs:
 jobs:
   some-job:
     needs: [verify, check-params]
-    uses: eighty4/l3/action`
+    uses: ./.github/workflows/verify.yml`
 
                 assert.deepEqual(readWorkflowModel(yaml), {
                     workflow: {
@@ -1238,7 +1322,10 @@ jobs:
                             'some-job': {
                                 __KIND: 'uses',
                                 needs: ['verify', 'check-params'],
-                                uses: 'eighty4/l3/action',
+                                uses: {
+                                    __KIND: 'filesystem',
+                                    path: './.github/workflows/verify.yml',
+                                },
                             },
                         },
                     },
@@ -1253,7 +1340,7 @@ jobs:
     needs:
       verify:
       check-params:
-    uses: eighty4/l3/action`
+    uses: ./.github/workflow/verify.yml`
 
                 assert.deepEqual(readWorkflowModel(yaml), {
                     workflow: {
@@ -1277,7 +1364,7 @@ jobs:
                 const yaml = `
 jobs:
   some-job:
-    uses: eighty4/l3/action
+    uses: ./.github/workflows/verify.yml
     if: inputs.doing-cool-devops == 'true'`
 
                 assert.deepEqual(readWorkflowModel(yaml), {
@@ -1286,7 +1373,10 @@ jobs:
                         jobs: {
                             'some-job': {
                                 __KIND: 'uses',
-                                uses: 'eighty4/l3/action',
+                                uses: {
+                                    __KIND: 'filesystem',
+                                    path: './.github/workflows/verify.yml',
+                                },
                                 if: `inputs.doing-cool-devops == 'true'`,
                             },
                         },
@@ -1334,7 +1424,10 @@ jobs:
                             jobs: {
                                 'some-job': {
                                     __KIND: 'uses',
-                                    uses: './.github/workflows/another_workflow.yml',
+                                    uses: {
+                                        __KIND: 'filesystem',
+                                        path: './.github/workflows/another_workflow.yml',
+                                    },
                                 },
                             },
                         },
@@ -1346,7 +1439,7 @@ jobs:
                     const yaml = `
 jobs:
   some-job:
-    uses: eighty4/l3/.github/workflows/verify.yml`
+    uses: eighty4/l3/.github/workflows/verify.yml@main`
 
                     assert.deepEqual(readWorkflowModel(yaml), {
                         workflow: {
@@ -1354,7 +1447,15 @@ jobs:
                             jobs: {
                                 'some-job': {
                                     __KIND: 'uses',
-                                    uses: 'eighty4/l3/.github/workflows/verify.yml',
+                                    uses: {
+                                        __KIND: 'repository',
+                                        owner: 'eighty4',
+                                        repo: 'l3',
+                                        ref: 'main',
+                                        specifier:
+                                            'eighty4/l3/.github/workflows/verify.yml@main',
+                                        filename: 'verify.yml',
+                                    },
                                 },
                             },
                         },
@@ -1362,7 +1463,7 @@ jobs:
                     })
                 })
 
-                it('.uses: external repo workflow with git ref', () => {
+                it.only('.uses: external repo workflow with git ref', () => {
                     const yaml = `
 jobs:
   some-job:
@@ -1374,7 +1475,15 @@ jobs:
                             jobs: {
                                 'some-job': {
                                     __KIND: 'uses',
-                                    uses: 'eighty4/l3/.github/workflows/verify.yml@11bd39a781726e014747c47dbcb1b878050fc0e4',
+                                    uses: {
+                                        __KIND: 'repository',
+                                        owner: 'eighty4',
+                                        repo: 'l3',
+                                        ref: '11bd39a781726e014747c47dbcb1b878050fc0e4',
+                                        specifier:
+                                            'eighty4/l3/.github/workflows/verify.yml@11bd39a781726e014747c47dbcb1b878050fc0e4',
+                                        filename: 'verify.yml',
+                                    },
                                 },
                             },
                         },
@@ -1408,7 +1517,7 @@ jobs:
                     const yaml = `
 jobs:
   some-job:
-    uses: eighty4/l3/.github/workflows/verify.yml
+    uses: ./.github/workflows/verify.yml
     env:
       bunk: cfg`
 
@@ -1433,7 +1542,7 @@ jobs:
                     const yaml = `
 jobs:
   some-job:
-    uses: eighty4/l3/action
+    uses: ./.github/workflows/verify.yml
     with:
       some-input: asdf`
 
@@ -1443,7 +1552,10 @@ jobs:
                             jobs: {
                                 'some-job': {
                                     __KIND: 'uses',
-                                    uses: 'eighty4/l3/action',
+                                    uses: {
+                                        __KIND: 'filesystem',
+                                        path: './.github/workflows/verify.yml',
+                                    },
                                     with: {
                                         'some-input': 'asdf',
                                     },
@@ -1458,7 +1570,7 @@ jobs:
                     const yaml = `
 jobs:
   some-job:
-    uses: eighty4/l3/action
+    uses: ./.github/workflows/verify.yml
     with:
       some-input: 42`
 
@@ -1468,7 +1580,10 @@ jobs:
                             jobs: {
                                 'some-job': {
                                     __KIND: 'uses',
-                                    uses: 'eighty4/l3/action',
+                                    uses: {
+                                        __KIND: 'filesystem',
+                                        path: './.github/workflows/verify.yml',
+                                    },
                                     with: {
                                         'some-input': 42,
                                     },
@@ -1483,7 +1598,7 @@ jobs:
                     const yaml = `
 jobs:
   some-job:
-    uses: eighty4/l3/action
+    uses: ./.github/workflows/verify.yml
     with:
       some-input: true`
 
@@ -1493,7 +1608,10 @@ jobs:
                             jobs: {
                                 'some-job': {
                                     __KIND: 'uses',
-                                    uses: 'eighty4/l3/action',
+                                    uses: {
+                                        __KIND: 'filesystem',
+                                        path: './.github/workflows/verify.yml',
+                                    },
                                     with: {
                                         'some-input': true,
                                     },

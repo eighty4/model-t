@@ -175,9 +175,26 @@ export type GHWorkflowJobRunsSteps = GHWorkflowJobCommonProps & {
 
 export type GHWorkflowJobUsesWorkflow = GHWorkflowJobCommonProps & {
     __KIND: 'uses'
-    uses: string
+    uses: GHWorkflowCallSpecifier
     with?: Record<string, boolean | number | string>
 } & GHWorkflowJobCommonProps
+
+export type GHWorkflowCallSpecifier =
+    | {
+          // workflow resolved by filesystem path
+          __KIND: 'filesystem'
+          path: string
+      }
+    | {
+          // workflow reoslved from a public or private repository
+          __KIND: 'repository'
+          owner: string
+          repo: string
+          ref: string
+          // original string value of `uses:` from workflow job
+          specifier: string
+          filename: string
+      }
 
 export type GHWorkflowStep = GHWorkflowStepRunsShell | GHWorkflowStepUsesAction
 
@@ -223,7 +240,7 @@ export type GHWorkflowActionSpecifier =
           owner: string
           repo: string
           ref: string
-          // original string value of `uses:` from workflow
+          // original string value of `uses:` from job step
           specifier: string
           subdirectory?: string
       }

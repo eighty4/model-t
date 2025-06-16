@@ -4,8 +4,10 @@
 
 ### Added
 
-- GitHub actions used by workflows are fetched to validate workflows provide
-  values for required action inputs
+- GitHub actions used by workflows are fetched to validate calling workflow
+  provides values for required action inputs
+- Workflow calls from external repositories are fetched to validate calling
+  workflow provides values for required called workflow inputs
 
 ## [v0.0.2] - 2025-06-04
 
