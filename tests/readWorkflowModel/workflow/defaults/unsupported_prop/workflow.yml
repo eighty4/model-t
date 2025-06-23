@@ -1,0 +1,13 @@
+name: Test
+
+on:
+  push:
+
+defaults:
+  bunk: data
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo

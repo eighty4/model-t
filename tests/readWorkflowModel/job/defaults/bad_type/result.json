@@ -1,0 +1,28 @@
+{
+  "workflow": {
+    "on": {
+      "push": {
+        "__KIND": "push"
+      }
+    },
+    "jobs": {
+      "test": {
+        "__KIND": "steps",
+        "runsOn": "ubuntu-latest",
+        "steps": [
+          {
+            "__KIND": "run",
+            "run": "echo"
+          }
+        ]
+      }
+    }
+  },
+  "schemaErrors": [
+    {
+      "message": "Must be an object of job defaults config",
+      "object": "job",
+      "path": "jobs.test.defaults"
+    }
+  ]
+}

@@ -1,8 +1,77 @@
 import assert from 'node:assert/strict'
+import { readdir, readFile, stat } from 'node:fs/promises'
+import { join } from 'node:path'
 import { describe, it } from 'node:test'
 import { readWorkflowModel } from './readWorkflow.ts'
 
 describe('reading workflows', () => {
+    async function isDir(p: string): Promise<boolean> {
+        try {
+            return (await stat(p)).isDirectory()
+        } catch (e) {
+            return false
+        }
+    }
+
+    async function isFile(p: string): Promise<boolean> {
+        try {
+            return (await stat(p)).isFile()
+        } catch (e) {
+            return false
+        }
+    }
+
+    async function containsTestFiles(p: string): Promise<boolean> {
+        if (await isFile(join(p, 'workflow.yml'))) {
+            if (await isFile(join(p, 'result.json'))) {
+                return true
+            }
+        }
+        return false
+    }
+
+    type RWTest = {
+        dir: string
+        actual: ReturnType<readWorkflowModel>
+        expected: ReturnType<readWorkflowModel>
+    }
+
+    async function readTestData(dir: string): Promise<RWTest> {
+        const expected = JSON.parse(
+            await readFile(join(dir, 'result.json'), 'utf-8'),
+        )
+        const wfYaml = await readFile(join(dir, 'workflow.yml'), 'utf-8')
+        const actual = readWorkflowModel(wfYaml)
+        return {
+            dir,
+            actual,
+            expected,
+        }
+    }
+
+    async function collectTests(p: string): Promise<Array<RWTest>> {
+        const tests: Array<RWTest> = []
+        for (const filename of await readdir(p)) {
+            const child = join(p, filename)
+            if (await isDir(child)) {
+                if (await containsTestFiles(child)) {
+                    tests.push(await readTestData(child))
+                } else {
+                    tests.push(...(await collectTests(child)))
+                }
+            }
+        }
+        return tests
+    }
+
+    it('verify with fixtures', async () => {
+        for (const { dir, actual, expected } of await collectTests(
+            'tests/readWorkflowModel',
+        )) {
+            assert.deepEqual(actual, expected, dir)
+        }
+    })
+
     describe('bad input', () => {
         it('throws error', () => {
             assert.throws(
@@ -1463,7 +1532,7 @@ jobs:
                     })
                 })
 
-                it.only('.uses: external repo workflow with git ref', () => {
+                it('.uses: external repo workflow with git ref', () => {
                     const yaml = `
 jobs:
   some-job:

@@ -1,0 +1,28 @@
+{
+  "workflow": {
+    "on": {
+      "push": {
+        "__KIND": "push"
+      }
+    },
+    "jobs": {
+      "test": {
+        "__KIND": "steps",
+        "runsOn": "ubuntu-latest",
+        "steps": [
+          {
+            "__KIND": "run",
+            "run": "echo"
+          }
+        ]
+      }
+    }
+  },
+  "schemaErrors": [
+    {
+      "message": "Job `test` defaults has an unsupported field `run.bunk`",
+      "object": "job",
+      "path": "jobs.test.defaults.run.bunk"
+    }
+  ]
+}

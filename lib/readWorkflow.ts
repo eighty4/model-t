@@ -42,6 +42,7 @@ import type { GHWorkflowSchemaError } from './workflowError.ts'
 
 const jobAndStepIdRegex = /^[_a-z]{1}[_\-a-z\d]+$/
 
+// determines what props are no longer supported given use of another feature
 const UNSUPPORTED_PROPS = Object.freeze({
     JOB_WITH_USES: ['env'],
     JOB_WITH_STEPS: [],
@@ -66,6 +67,18 @@ export function readWorkflowModel(s: string): GHWorkflowReadResult {
     const schemaErrors: Array<GHWorkflowSchemaError> = []
     const on = collectEventCfgs(wfYaml, schemaErrors)
     const jobs = collectJobs(wfYaml, schemaErrors)
+    checkUnsupportedWorkflowKeys(wfYaml, schemaErrors)
+    if ('defaults' in wfYaml) {
+        if (isMap(wfYaml.defaults)) {
+            checkUnsupportedDefaultsKeys(wfYaml.defaults, schemaErrors)
+        } else {
+            schemaErrors.push({
+                message: 'Must be an object of workflow defaults config',
+                object: 'workflow',
+                path: 'defaults',
+            })
+        }
+    }
     return {
         workflow: {
             on,
@@ -73,6 +86,10 @@ export function readWorkflowModel(s: string): GHWorkflowReadResult {
         },
         schemaErrors,
     }
+}
+
+function isWorkflowEvent(v: string): v is GHWorkflowEvent {
+    return GHWorkflowEvents.includes(v as GHWorkflowEvent)
 }
 
 function collectEventCfgs(
@@ -545,7 +562,7 @@ function parseEnvironmentInput(
 
 function collectJobs(
     wfYaml: Record<string, unknown>,
-    errors: Array<GHWorkflowSchemaError>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
 ): Record<string, GHWorkflowJob> {
     let invalidType = false
     let missingData = false
@@ -559,14 +576,14 @@ function collectJobs(
         missingData = true
     }
     if (invalidType) {
-        errors.push({
+        schemaErrors.push({
             object: 'workflow',
             message: 'Type of jobs is incorrect at `jobs`',
             path: 'jobs',
         })
     }
     if (missingData) {
-        errors.push({
+        schemaErrors.push({
             object: 'workflow',
             message: 'No jobs defined in `jobs`',
             path: 'jobs',
@@ -594,6 +611,81 @@ function collectJobs(
                     path: `jobs.${jobId}`,
                 })
             }
+            checkUnsupportedJobKeys(jobYaml, schemaErrors, jobId)
+            if ('container' in jobYaml) {
+                if (isMap(jobYaml.container)) {
+                    checkUnsupportedJobContainerKeys(
+                        jobYaml.container,
+                        schemaErrors,
+                        jobId,
+                    )
+                } else {
+                    schemaErrors.push({
+                        message: 'Must be an object of job container config',
+                        object: 'job',
+                        path: `jobs.${jobId}.container`,
+                    })
+                }
+            }
+            if ('defaults' in jobYaml) {
+                if (isMap(jobYaml.defaults)) {
+                    checkUnsupportedDefaultsKeys(
+                        jobYaml.defaults,
+                        schemaErrors,
+                        jobId,
+                    )
+                } else {
+                    schemaErrors.push({
+                        message: 'Must be an object of job defaults config',
+                        object: 'job',
+                        path: `jobs.${jobId}.defaults`,
+                    })
+                }
+            }
+            if ('services' in jobYaml) {
+                if (!isMap(jobYaml.services)) {
+                    schemaErrors.push({
+                        message: 'Must be an object of job services configs',
+                        object: 'job',
+                        path: `jobs.${jobId}.services`,
+                    })
+                } else {
+                    for (const [serviceId, serviceYaml] of Object.entries(
+                        jobYaml.services,
+                    )) {
+                        if (isMap(serviceYaml)) {
+                            checkUnsupportedJobContainerKeys(
+                                serviceYaml,
+                                schemaErrors,
+                                jobId,
+                                serviceId,
+                            )
+                        } else {
+                            schemaErrors.push({
+                                message:
+                                    'Must be an object of job services configs',
+                                object: 'job',
+                                path: `jobs.${jobId}.services.${serviceId}`,
+                            })
+                        }
+                    }
+                }
+            }
+            if ('strategy' in jobYaml) {
+                if (isMap(jobYaml.strategy)) {
+                    checkUnsupportedJobStrategyKeys(
+                        jobYaml.strategy,
+                        schemaErrors,
+                        jobId,
+                    )
+                } else {
+                    schemaErrors.push({
+                        message: `Must be an object of job strategy config`,
+                        object: 'job',
+                        path: `jobs.${jobId}.strategy`,
+                    })
+                }
+            }
             const job: Partial<GHWorkflowJob> = {}
             if ('steps' in jobYaml && 'uses' in jobYaml) {
                 throw new SchemaError({
@@ -605,7 +697,11 @@ function collectJobs(
                 const stepsJob = job as Partial<GHWorkflowJobRunsSteps>
                 stepsJob.__KIND = 'steps'
                 if (isArrayOfMaps(jobYaml.steps)) {
-                    const steps = collectSteps(jobId, jobYaml.steps)
+                    const steps = collectSteps(
+                        jobId,
+                        jobYaml.steps,
+                        schemaErrors,
+                    )
                     if (steps) {
                         stepsJob.steps = steps
                     }
@@ -754,7 +850,7 @@ function collectJobs(
             jobs[jobId] = job as GHWorkflowJob
         } catch (e: unknown) {
             if (e instanceof SchemaError) {
-                errors.push(e.schemaError)
+                schemaErrors.push(e.schemaError)
             } else {
                 throw e
             }
@@ -785,7 +881,6 @@ function parseJobUsesWorkflowValue(
     }
     const splitOnRef = v.split('@', 2)
     const splitPaths = splitOnRef[0].split('/')
-    console.log('wtf', splitPaths)
     if (
         splitPaths.length !== 5 ||
         splitPaths[2] !== '.github' ||
@@ -819,9 +914,11 @@ function parseJobUsesWorkflowValue(
 function collectSteps(
     jobId: string,
     stepsYaml: Array<Record<string, unknown>>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
 ): Array<GHWorkflowStep> | undefined {
     const steps: Array<GHWorkflowStep> = []
     for (const [i, stepYaml] of stepsYaml.entries()) {
+        checkUnsupportedJobStepKeys(stepYaml, schemaErrors, jobId, i)
         const step: Partial<GHWorkflowStep> = {}
         if ('id' in stepYaml) {
             if (isString(stepYaml.id) && jobAndStepIdRegex.test(stepYaml.id)) {
@@ -970,6 +1067,215 @@ function parseStepUsesActionValue(
     return action as GHWorkflowActionSpecifier
 }
 
-function isWorkflowEvent(v: string): v is GHWorkflowEvent {
-    return GHWorkflowEvents.includes(v as GHWorkflowEvent)
+function checkUnsupportedWorkflowKeys(
+    wfYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+) {
+    for (const k of Object.keys(wfYaml)) {
+        switch (k) {
+            case 'concurrency':
+            case 'defaults':
+            case 'env':
+            case 'jobs':
+            case 'name':
+            case 'permissions':
+            case 'on':
+            case 'run-name':
+                break
+            default:
+                schemaErrors.push({
+                    message: `Workflow has an unsupported field \`${k}\``,
+                    object: 'workflow',
+                    path: k,
+                })
+        }
+    }
+}
+
+function checkUnsupportedJobKeys(
+    jobYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+    jobId: string,
+) {
+    for (const k of Object.keys(jobYaml)) {
+        switch (k) {
+            case 'concurrency':
+            case 'container':
+            case 'continue-on-error':
+            case 'env':
+            case 'environment':
+            case 'defaults':
+            case 'if':
+            case 'name':
+            case 'needs':
+            case 'outputs':
+            case 'permissions':
+            case 'runs-on':
+            case 'secrets':
+            case 'services':
+            case 'strategy':
+            case 'steps':
+            case 'timeout-minutes':
+            case 'uses':
+            case 'with':
+                break
+            default:
+                schemaErrors.push({
+                    message: `Job \`${jobId}\` has an unsupported field \`${k}\``,
+                    object: 'job',
+                    path: `jobs.${jobId}.${k}`,
+                })
+        }
+    }
+}
+
+function checkUnsupportedDefaultsKeys(
+    defaultsYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+    jobId?: string,
+) {
+    for (const k of Object.keys(defaultsYaml)) {
+        switch (k) {
+            case 'run':
+                if (!isMap(defaultsYaml.run)) {
+                    if (!!jobId) {
+                        schemaErrors.push({
+                            message:
+                                'Must be an object of job run defaults config',
+                            object: 'job',
+                            path: `jobs.${jobId}.defaults`,
+                        })
+                    } else {
+                        schemaErrors.push({
+                            message:
+                                'Must be an object of workflow run defaults config',
+                            object: 'workflow',
+                            path: 'defaults',
+                        })
+                    }
+                } else {
+                    for (const runK of Object.keys(defaultsYaml.run)) {
+                        switch (runK) {
+                            case 'shell':
+                            case 'working-directory':
+                                break
+                            default:
+                                if (!!jobId) {
+                                    schemaErrors.push({
+                                        message: `Job \`${jobId}\` defaults has an unsupported field \`run.${runK}\``,
+                                        object: 'job',
+                                        path: `jobs.${jobId}.defaults.run.${runK}`,
+                                    })
+                                } else {
+                                    schemaErrors.push({
+                                        message: `Workflow defaults has an unsupported field \`run.${runK}\``,
+                                        object: 'workflow',
+                                        path: `defaults.run.${runK}`,
+                                    })
+                                }
+                        }
+                    }
+                }
+                break
+            default:
+                if (!!jobId) {
+                    schemaErrors.push({
+                        message: `Job \`${jobId}\` defaults has an unsupported field \`${k}\``,
+                        object: 'job',
+                        path: `jobs.${jobId}.defaults.${k}`,
+                    })
+                } else {
+                    schemaErrors.push({
+                        message: `Workflow defaults has an unsupported field \`${k}\``,
+                        object: 'workflow',
+                        path: `defaults.${k}`,
+                    })
+                }
+        }
+    }
+}
+
+// used for job container and services
+function checkUnsupportedJobContainerKeys(
+    containerYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+    jobId: string,
+    serviceId?: string,
+) {
+    for (const k of Object.keys(containerYaml)) {
+        switch (k) {
+            case 'credentials':
+            case 'env':
+            case 'image':
+            case 'options':
+            case 'ports':
+            case 'volumes':
+                break
+            default:
+                if (!!serviceId) {
+                    schemaErrors.push({
+                        message: `Service \`${serviceId}\` of job \`${jobId}\` has an unsupported field \`${k}\``,
+                        object: 'job',
+                        path: `jobs.${jobId}.services.${serviceId}.${k}`,
+                    })
+                } else {
+                    schemaErrors.push({
+                        message: `Container of job \`${jobId}\` has an unsupported field \`${k}\``,
+                        object: 'job',
+                        path: `jobs.${jobId}.container.${k}`,
+                    })
+                }
+        }
+    }
+}
+
+function checkUnsupportedJobStrategyKeys(
+    strategyYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+    jobId: string,
+) {
+    for (const k of Object.keys(strategyYaml)) {
+        switch (k) {
+            case 'fail-fast':
+            case 'matrix':
+            case 'max-parallel':
+                break
+            default:
+                schemaErrors.push({
+                    message: `Strategy of job \`${jobId}\` has an unsupported field \`${k}\``,
+                    object: 'job',
+                    path: `jobs.${jobId}.strategy.${k}`,
+                })
+        }
+    }
+}
+
+function checkUnsupportedJobStepKeys(
+    stepYaml: Record<string, unknown>,
+    schemaErrors: Array<GHWorkflowSchemaError>,
+    jobId: string,
+    stepIndex: number,
+) {
+    for (const k of Object.keys(stepYaml)) {
+        switch (k) {
+            case 'env':
+            case 'continue-on-error':
+            case 'id':
+            case 'if':
+            case 'name':
+            case 'run':
+            case 'shell':
+            case 'timeout-minutes':
+            case 'uses':
+            case 'with':
+            case 'working-directory':
+                break
+            default:
+                schemaErrors.push({
+                    message: `Step of job \`${jobId}\` has an unsupported field \`${k}\``,
+                    object: 'step',
+                    path: `jobs.${jobId}.steps[${stepIndex}].${k}`,
+                })
+        }
+    }
 }

@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 
-- ???
+### Added
+
+- Workflows are strictly validated for any unknown/unsupported keys
 
 ## [v0.0.3] - 2025-06-16
 

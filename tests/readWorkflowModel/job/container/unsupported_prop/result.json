@@ -1,0 +1,28 @@
+{
+  "workflow": {
+    "on": {
+      "push": {
+        "__KIND": "push"
+      }
+    },
+    "jobs": {
+      "test": {
+        "__KIND": "steps",
+        "runsOn": "ubuntu-latest",
+        "steps": [
+          {
+            "__KIND": "run",
+            "run": "echo"
+          }
+        ]
+      }
+    }
+  },
+  "schemaErrors": [
+    {
+      "message": "Container of job `test` has an unsupported field `tupperware`",
+      "object": "job",
+      "path": "jobs.test.container.tupperware"
+    }
+  ]
+}

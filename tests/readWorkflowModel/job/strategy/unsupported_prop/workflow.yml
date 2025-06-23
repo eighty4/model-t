@@ -1,0 +1,12 @@
+name: Test
+
+on:
+  push:
+
+jobs:
+  test:
+    strategy:
+      jump: rocket
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo
