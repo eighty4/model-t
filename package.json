@@ -7,7 +7,7 @@
   "homepage": "https://github.com/eighty4/model-t",
   "description": "GitHub workflow validation",
   "license": "BSD-2-Clause",
-  "packageManager": "pnpm@10.11.0",
+  "packageManager": "pnpm@10.12.3",
   "bin": {
     "model-t": "./lib_js/bin.js"
   },
