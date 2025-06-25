@@ -12,7 +12,11 @@
     "model-t": "./lib_js/bin.js"
   },
   "exports": {
-    ".": "./lib_js/lib.js"
+    ".": {
+      "bun": "./lib/api.ts",
+      "node": "./lib_js/api.js",
+      "types": "./lib_types/api.d.ts"
+    }
   },
   "scripts": {
     "build": "tsc",
@@ -33,6 +37,8 @@
     "typescript": "^5.8.3"
   },
   "files": [
+    "lib/*.ts",
+    "!lib/*.test.ts",
     "lib_js/*",
     "lib_types/*",
     "CHANGELOG.md"

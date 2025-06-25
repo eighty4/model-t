@@ -2,7 +2,15 @@
 
 ## [Unreleased]
 
-- ???
+### Added
+
+- TypeScript sources are added to published package for the
+  Bun runtime's native TypeScript support
+
+### Fixed
+
+- TypeScript type declarations were broken by pointing to a
+  directory instead of the export entrypoint `.d.ts` file
 
 ## [v0.0.4] - 2025-06-24
 
