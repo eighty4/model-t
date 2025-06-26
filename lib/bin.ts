@@ -3,6 +3,7 @@
 import { readdir, stat } from 'node:fs/promises'
 import { basename, dirname, extname, join, resolve } from 'node:path'
 import {
+    GitHubApiRateLimited,
     isFileNotFound,
     ProjectFileFetcher,
     RestFileFetcher,
@@ -120,6 +121,10 @@ async function validateProjectWorkflow(
     } catch (e: unknown) {
         if (e instanceof GHWorkflowError) {
             workflowErrorExit(e, workflow)
+        } else if (e instanceof GitHubApiRateLimited) {
+            console.log(
+                `${redBooBoo()} ${workflow}: ${e.message} until ${e.resetsWhen.toLocaleTimeString()}`,
+            )
         } else if (e instanceof Error) {
             console.log(`${redBooBoo()} ${workflow}: ${e.message}`)
         }
