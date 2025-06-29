@@ -4,6 +4,8 @@
 
 ### Added
 
+- Package export for web environment used by clients when
+  module resolution does not resolve as Bun or Node
 - API rate limiting reset time included with error message
 - TypeScript sources are added to published package for the
   Bun runtime's native TypeScript support

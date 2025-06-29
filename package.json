@@ -15,7 +15,8 @@
     ".": {
       "bun": "./lib/api.ts",
       "node": "./lib_js/api.js",
-      "types": "./lib_types/api.d.ts"
+      "types": "./lib_types/api.d.ts",
+      "default": "./lib_js/api.js"
     }
   },
   "scripts": {
