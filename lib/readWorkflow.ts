@@ -42,9 +42,11 @@ import type { GHWorkflowSchemaError } from './workflowError.ts'
 
 const jobAndStepIdRegex = /^[_a-z]{1}[_\-a-z\d]+$/
 
-// determines what props are no longer supported given use of another feature
+// determines what props cannot be combined
+//  a job with `uses` does not support `env` or `outputs`
+//  a step with `uses` does not support `env`
 const UNSUPPORTED_PROPS = Object.freeze({
-    JOB_WITH_USES: ['env'],
+    JOB_WITH_USES: ['env', 'outputs'],
     JOB_WITH_STEPS: [],
     STEP_WITH_USES: ['env'],
     STEP_WITH_RUN: [],

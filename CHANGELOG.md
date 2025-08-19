@@ -4,6 +4,8 @@
 
 ### Added
 
+- Creates a schema error for a Job calling a workflow that
+  tries to declare job outputs
 - Package export for web environment used by clients when
   module resolution does not resolve as Bun or Node
 - API rate limiting reset time included with error message
