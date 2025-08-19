@@ -1,4 +1,8 @@
+export * from './fileReader.ts'
 export type * from './model.ts'
 export * from './readAction.ts'
 export * from './readWorkflow.ts'
+export * from './workflowAnalyzer.ts'
 export * from './workflowError.ts'
+export * from './fetchers/fileFetcher.ts'
+export * from './fetchers/repoObjectFetcher.ts'

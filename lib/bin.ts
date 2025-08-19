@@ -2,15 +2,14 @@
 
 import { readdir, stat } from 'node:fs/promises'
 import { basename, dirname, extname, join, resolve } from 'node:path'
-import {
-    GitHubApiRateLimited,
-    isFileNotFound,
-    ProjectFileFetcher,
-    RestFileFetcher,
-} from './fileFetcher.ts'
 import { FileReader } from './fileReader.ts'
 import { GHWorkflowAnalyzer } from './workflowAnalyzer.ts'
 import { GHWorkflowError } from './workflowError.ts'
+import { isFileNotFound, LocalFsFileFetcher } from './fetchers/fsFileFetcher.ts'
+import {
+    GitHubApiRateLimited,
+    RestApiObjectFetcher,
+} from './fetchers/repoObjectFetcher.ts'
 
 const args: Array<string> = (() => {
     const args = [...process.argv]
@@ -104,8 +103,8 @@ function walkUpPathToProjectRoot(p: string): string {
 }
 
 function createFileReader(projectRoot: string): FileReader {
-    const files = new ProjectFileFetcher(projectRoot)
-    const repoObjects = new RestFileFetcher()
+    const files = new LocalFsFileFetcher(projectRoot)
+    const repoObjects = new RestApiObjectFetcher()
     return new FileReader(files, repoObjects)
 }
 

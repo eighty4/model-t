@@ -1,7 +1,5 @@
-export * from './fileFetcher.ts'
-export * from './fileReader.ts'
-export type * from './model.ts'
-export * from './readAction.ts'
-export * from './readWorkflow.ts'
-export * from './workflowAnalyzer.ts'
-export * from './workflowError.ts'
+// export everything that's browser compatible
+export * from './api.web.ts'
+
+// extend with fs file fetcher using node runtime
+export * from './fetchers/fsFileFetcher.ts'

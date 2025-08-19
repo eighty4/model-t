@@ -1,24 +1,3 @@
-import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
-
-export function isFileNotFound(e: unknown): boolean {
-    return (
-        e !== null &&
-        typeof e === 'object' &&
-        'code' in e &&
-        e.code === 'ENOENT'
-    )
-}
-
-export class FileNotFoundError extends Error {
-    path: string
-    constructor(path: string) {
-        super(path + ' not found')
-        this.name = this.constructor.name
-        this.path = path
-    }
-}
-
 export class GitHubApiNotFound extends Error {
     constructor() {
         super('gh api not found')
@@ -49,73 +28,16 @@ export class NetworkError extends Error {
     }
 }
 
-// for reading project files
+// for fetching over the network from a GitHub repository
 //
-// path input will be relative to repository root such as
-// `./.github/workflows/verify.yml`
-export type FileFetcher = {
-    fetchFile(p: string): Promise<string>
-}
-
-export class ProjectFileFetcher implements FileFetcher {
-    // absolute path to project root
-    #projectRoot: string
-
-    constructor(projectRoot: string) {
-        this.#projectRoot = projectRoot
-    }
-
-    async fetchFile(p: string): Promise<string> {
-        try {
-            return await readFile(join(this.#projectRoot, p), 'utf-8')
-        } catch (e: unknown) {
-            if (isFileNotFound(e)) {
-                throw new FileNotFoundError(p)
-            } else {
-                throw e
-            }
-        }
-    }
-}
-
-function checkApiResponseErrors(response: Response): void | never {
-    let rateLimited = false
-    if (response.status === 401) {
-        throw new GitHubApiUnauthorized()
-    } else if (
-        response.status === 403 &&
-        response.headers.get('x-ratelimit-remaining') === '0'
-    ) {
-        rateLimited = true
-    } else if (response.status === 429) {
-        rateLimited = true
-    } else if (response.status === 404) {
-        throw new GitHubApiNotFound()
-    }
-    if (rateLimited) {
-        throw new GitHubApiRateLimited(
-            parseInt(response.headers.get('x-ratelimit-reset')!, 10),
-        )
-    } else if (response.status > 299) {
-        throw new Error('gh api unexpected status ' + response.status)
-    }
-}
-
-async function fetchInner(
-    url: string,
-    method: string,
-    headers: Headers,
-    body?: string,
-): Promise<Response> | never {
-    try {
-        return await fetch(url, { method, headers, body })
-    } catch (e: unknown) {
-        throw new NetworkError(e)
-    }
-}
-
-// for fetching from a GitHub repository used to retrieve external
-// workflows and actions
+// used to retrieve sources from external repos,
+// workflows and action metadata files
+//
+// these errors are thrown by RepoObjectFetcher subclasses:
+// throws GitHubApiNotFound
+// throws GitHubApiRateLimited
+// throws GitHubApiUnauthorized
+// throws NetworkError
 export abstract class RepoObjectFetcher {
     abstract fetchFile(
         owner: string,
@@ -124,6 +46,7 @@ export abstract class RepoObjectFetcher {
         p: string,
     ): Promise<string>
 
+    // retries `action.yaml` when `action.yml` not found
     async fetchActionMetadata(
         owner: string,
         repo: string,
@@ -151,7 +74,7 @@ export abstract class RepoObjectFetcher {
     }
 }
 
-export class GraphQLFetcher extends RepoObjectFetcher {
+export class GraphQLObjectFetcher extends RepoObjectFetcher {
     #gitHubToken: string
 
     constructor(gitHubToken: string) {
@@ -198,7 +121,9 @@ query {
     }
 }
 
-export class RestFileFetcher extends RepoObjectFetcher {
+// allows accessing public repo sources without auth token
+// unauthorized requests have much stricter rate limiting quotas
+export class RestApiObjectFetcher extends RepoObjectFetcher {
     #gitHubToken?: string
 
     constructor(gitHubToken?: string) {
@@ -222,5 +147,41 @@ export class RestFileFetcher extends RepoObjectFetcher {
         const response = await fetchInner(url, 'GET', headers)
         checkApiResponseErrors(response)
         return await response.text()
+    }
+}
+
+async function fetchInner(
+    url: string,
+    method: string,
+    headers: Headers,
+    body?: string,
+): Promise<Response> | never {
+    try {
+        return await fetch(url, { method, headers, body })
+    } catch (e: unknown) {
+        throw new NetworkError(e)
+    }
+}
+
+function checkApiResponseErrors(response: Response): void | never {
+    let rateLimited = false
+    if (response.status === 401) {
+        throw new GitHubApiUnauthorized()
+    } else if (
+        response.status === 403 &&
+        response.headers.get('x-ratelimit-remaining') === '0'
+    ) {
+        rateLimited = true
+    } else if (response.status === 429) {
+        rateLimited = true
+    } else if (response.status === 404) {
+        throw new GitHubApiNotFound()
+    }
+    if (rateLimited) {
+        throw new GitHubApiRateLimited(
+            parseInt(response.headers.get('x-ratelimit-reset')!, 10),
+        )
+    } else if (response.status > 299) {
+        throw new Error('gh api unexpected status ' + response.status)
     }
 }

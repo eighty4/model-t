@@ -1,10 +1,3 @@
-import {
-    type FileFetcher,
-    FileNotFoundError,
-    GitHubApiNotFound,
-    NetworkError,
-    type RepoObjectFetcher,
-} from './fileFetcher.ts'
 import type {
     GHAction,
     GHWorkflow,
@@ -14,6 +7,12 @@ import type {
 import { readActionModel } from './readAction.ts'
 import { readWorkflowModel } from './readWorkflow.ts'
 import { GHWorkflowError } from './workflowError.ts'
+import { type FileFetcher, FileNotFoundError } from './fetchers/fileFetcher.ts'
+import {
+    GitHubApiNotFound,
+    NetworkError,
+    type RepoObjectFetcher,
+} from './fetchers/repoObjectFetcher.ts'
 
 type ReaderCache = {
     actions: CachedActions
@@ -43,6 +42,9 @@ function createReaderCache(): ReaderCache {
     }
 }
 
+// delegates to a FileFetcher for repo local file paths
+// and RepoObjectFetcher for retrieving workflows and
+// action metadata from external repos
 export class FileReader {
     #cache: ReaderCache
     #files: FileFetcher

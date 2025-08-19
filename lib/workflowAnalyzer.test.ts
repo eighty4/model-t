@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import { beforeEach, describe, it } from 'node:test'
-import {
-    type FileFetcher,
-    GitHubApiNotFound,
-    RepoObjectFetcher,
-} from './fileFetcher.ts'
 import { FileReader } from './fileReader.ts'
 import { GHWorkflowAnalyzer } from './workflowAnalyzer.ts'
+import type { FileFetcher } from './fetchers/fileFetcher.ts'
+import {
+    GitHubApiNotFound,
+    RepoObjectFetcher,
+} from './fetchers/repoObjectFetcher.ts'
 
 class TestFileFetcher implements FileFetcher {
     files: Record<string, string> = {}
