@@ -7,7 +7,6 @@ import {
 } from './fileFetcher.ts'
 import { FileReader } from './fileReader.ts'
 import { GHWorkflowAnalyzer } from './workflowAnalyzer.ts'
-import { GHWorkflowError } from './workflowError.ts'
 
 class TestFileFetcher implements FileFetcher {
     files: Record<string, string> = {}
@@ -93,7 +92,7 @@ jobs:
 
             await assert.rejects(
                 () => analyzer.analyzeWorkflow('.github/workflows/release.yml'),
-                e => {
+                (e: any) => {
                     assert.equal(e.code, 'WORKFLOW_RUNTIME')
                     assert.equal(
                         e.message,
@@ -134,7 +133,7 @@ jobs:
 
             await assert.rejects(
                 () => analyzer.analyzeWorkflow('.github/workflows/release.yml'),
-                e => {
+                (e: any) => {
                     assert.equal(e.code, 'WORKFLOW_RUNTIME')
                     assert.equal(
                         e.message,
@@ -177,7 +176,7 @@ jobs:
 
             await assert.rejects(
                 () => analyzer.analyzeWorkflow('.github/workflows/release.yml'),
-                e => {
+                (e: any) => {
                     assert.equal(e.code, 'WORKFLOW_RUNTIME')
                     assert.equal(
                         e.message,
@@ -281,7 +280,7 @@ inputs:
             )
             await assert.rejects(
                 () => analyzer.analyzeWorkflow('.github/workflows/release.yml'),
-                e => {
+                (e: any) => {
                     assert.equal(e.code, 'WORKFLOW_RUNTIME')
                     assert.equal(
                         e.message,

@@ -32,8 +32,8 @@ describe('reading workflows', () => {
 
     type RWTest = {
         dir: string
-        actual: ReturnType<readWorkflowModel>
-        expected: ReturnType<readWorkflowModel>
+        actual: ReturnType<typeof readWorkflowModel>
+        expected: ReturnType<typeof readWorkflowModel>
     }
 
     async function readTestData(dir: string): Promise<RWTest> {
@@ -809,11 +809,9 @@ jobs:
     uses: ./.github/workflows/verify.yml`
 
                     const result = readWorkflowModel(yaml)
-                    assert.equal(
-                        Object.keys(result.workflow.on.workflow_dispatch.inputs)
-                            .length,
-                        3,
-                    )
+                    const inputs = result.workflow.on.workflow_dispatch?.inputs
+                    assert.ok(inputs)
+                    assert.equal(Object.keys(inputs).length, 3)
                     assert.equal(result.schemaErrors.length, 0)
                 })
             })

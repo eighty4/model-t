@@ -177,7 +177,7 @@ export type GHWorkflowJobUsesWorkflow = GHWorkflowJobCommonProps & {
     __KIND: 'uses'
     uses: GHWorkflowCallSpecifier
     with?: Record<string, boolean | number | string>
-} & GHWorkflowJobCommonProps
+}
 
 export type GHWorkflowCallSpecifier =
     | {
