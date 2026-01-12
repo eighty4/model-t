@@ -1,5 +1,8 @@
-[31m✗[0m yaml_error.yml: Map keys must be unique at line 2, column 17:
+[31m✗[0m yaml_error.yml: duplicated mapping key (3:3)
 
-  workflow_call:
-                ^
-
+ 1 | on:
+ 2 |   workflow_call:
+ 3 |   workflow_call:
+-------^
+ 4 |     inputs:
+ 5 |       who_bad_mama_jama:

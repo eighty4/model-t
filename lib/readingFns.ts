@@ -1,4 +1,4 @@
-import { parse as parseYaml } from 'yaml'
+import { load as parseYaml } from 'js-yaml'
 
 export function convertMapOfStringLikes(
     c: Record<string, boolean | number | string>,
