@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 23
+          node-version: 24
       - run: npm i -g @eighty4/changelog
       - name: changelog entries
         if: ${{ inputs.semver-bump != 'prerelease' }}
@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 23
+          node-version: 24
       - id: bump
         run: |
           GIT_TAG=$(npm version ${{ inputs.semver-bump }} --no-git-tag-version)
@@ -71,6 +71,8 @@ jobs:
   npm-publish:
     needs: create-git-tag
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,7 +80,7 @@ jobs:
           ref: ${{ needs.create-git-tag.outputs.tag }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 23
+          node-version: 24
           registry-url: https://registry.npmjs.org
       - uses: pnpm/action-setup@v4
       - run: pnpm i
@@ -86,7 +88,6 @@ jobs:
       - name: publish
         env:
           NPM_TAG: ${{ inputs.semver-bump == 'prerelease' && 'next' || 'latest' }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: pnpm publish --access public --no-git-checks --tag $NPM_TAG
 
   create-release-notes:
@@ -99,7 +100,7 @@ jobs:
           ref: ${{ needs.create-git-tag.outputs.tag }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 23
+          node-version: 24
       - id: gen
         env:
           CHANGELOG_TAG: ${{ inputs.semver-bump == 'prerelease' && 'Unreleased' || needs.create-git-tag.outputs.tag }}
